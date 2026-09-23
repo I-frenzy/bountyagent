@@ -1,0 +1,19 @@
+# solidity / foundry
+/out/
+/cache/
+/broadcast/**/dry-run/
+
+# node
+node_modules/
+.next/
+out-web/
+
+# env / secrets
+.env
+.env.*
+!.env.example
+*.key
+
+# misc
+.DS_Store
+*.log

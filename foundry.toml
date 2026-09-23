@@ -1,0 +1,20 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+test = "test"
+script = "script"
+solc = "0.8.20"
+optimizer = true
+optimizer_runs = 200
+# Arc is EVM-compatible; pin to "paris" so we don't emit PUSH0 (Shanghai)
+# in case Arc's EVM build doesn't support it. Safe default for a new chain.
+evm_version = "paris"
+
+[rpc_endpoints]
+arc_testnet = "${ARC_TESTNET_RPC_URL}"
+arc_mainnet = "${ARC_MAINNET_RPC_URL}"
+
+[etherscan]
+arc_testnet = { key = "${EXPLORER_API_KEY}", url = "https://explorer.testnet.arc.io/api", chain = 5042002 }
+arc_mainnet = { key = "${EXPLORER_API_KEY}", url = "https://explorer.arc.io/api", chain = 5042 }
