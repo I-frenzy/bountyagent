@@ -5,7 +5,7 @@ import { useWallet } from "@/lib/wallet";
 import { useNetwork } from "@/lib/network";
 import { useTx } from "@/lib/useTx";
 import { useToast } from "@/lib/toast";
-import { bountyEngineAbi, TASK_STATUS } from "@/lib/bountyAbi";
+import { bountyEngineAbi, MODE, TASK_STATUS } from "@/lib/bountyAbi";
 import type { TaskWithSubs } from "@/lib/useTasks";
 import { fmtUsdc, shortAddr, timeAgo } from "@/lib/format";
 
@@ -23,17 +23,19 @@ export function TaskCard({ item, onChange }: { item: TaskWithSubs; onChange: () 
 
   const { id, task, submissions } = item;
   const status = TASK_STATUS[task.status] ?? "Open";
+  const verified = task.mode === MODE.Verified;
   const me = address?.toLowerCase();
-  const isValidator = me === task.validator.toLowerCase();
+  const isValidator = !verified && me === task.validator.toLowerCase();
   const isCreator = me === task.creator.toLowerCase();
   const open = status === "Open";
+  const expired = open && task.resolveDeadline > 0n && BigInt(Math.floor(Date.now() / 1000)) > task.resolveDeadline;
   const [expanded, setExpanded] = useState(false);
 
   const busy = tx.isPending || tx.isConfirming;
 
   useEffect(() => {
     if (tx.isSuccess && tx.hash) {
-      push({ kind: "success", msg: `Settled on-chain.`, href: txUrl(tx.hash) });
+      push({ kind: "success", msg: "Settled on-chain.", href: txUrl(tx.hash) });
       onChange();
       tx.reset();
     }
@@ -44,31 +46,20 @@ export function TaskCard({ item, onChange }: { item: TaskWithSubs; onChange: () 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tx.isSuccess, tx.error, tx.hash]);
 
-  function pay(winner: `0x${string}`) {
-    tx.write({
-      address: contract,
-      abi: bountyEngineAbi,
-      functionName: "completeTask",
-      args: [id, winner],
-    });
-  }
-  function cancel() {
-    tx.write({
-      address: contract,
-      abi: bountyEngineAbi,
-      functionName: "cancelTask",
-      args: [id],
-    });
-  }
+  const call = (functionName: string, args: readonly unknown[]) =>
+    tx.write({ address: contract, abi: bountyEngineAbi, functionName, args });
 
   return (
     <div className="card animate-rise p-4">
       <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="mono text-faint">#{id.toString()}</span>
           <span className={`chip ${STATUS_STYLE[status]}`}>
             {open && <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse2" />}
             {status}
+          </span>
+          <span className={`chip ${verified ? "border-accent/40 text-accent" : "border-line text-muted"}`}>
+            {verified ? "⚡ Verified" : "Curated"}
           </span>
         </div>
         <div className="text-right">
@@ -76,7 +67,7 @@ export function TaskCard({ item, onChange }: { item: TaskWithSubs; onChange: () 
             {fmtUsdc(task.reward > 0n ? task.reward : 0n)}
             {status === "Completed" && <span className="text-settle"> ✓</span>}
           </div>
-          <div className="eyebrow">USDC bounty</div>
+          <div className="eyebrow">USDC</div>
         </div>
       </div>
 
@@ -87,7 +78,7 @@ export function TaskCard({ item, onChange }: { item: TaskWithSubs; onChange: () 
       >
         {task.spec}
       </p>
-      {task.spec.length > 140 && (
+      {task.spec.length > 120 && (
         <button className="mt-1 text-[11px] text-accent hover:underline" onClick={() => setExpanded((v) => !v)}>
           {expanded ? "Show less" : "Show more"}
         </button>
@@ -100,65 +91,91 @@ export function TaskCard({ item, onChange }: { item: TaskWithSubs; onChange: () 
             {shortAddr(task.creator)}
           </a>
         </span>
-        <span>validator {shortAddr(task.validator)}</span>
+        {verified ? (
+          <span>
+            verifier{" "}
+            <a href={addressUrl(task.verifier)} target="_blank" rel="noreferrer" className="mono hover:text-ink">
+              {shortAddr(task.verifier)}
+            </a>
+          </span>
+        ) : (
+          <span>validator {shortAddr(task.validator)}</span>
+        )}
         <span>{timeAgo(task.createdAt)}</span>
+        {expired && <span className="text-pending">expired</span>}
       </div>
 
-      {/* submissions */}
-      <div className="mt-4 border-t border-line-soft pt-3">
-        <p className="eyebrow mb-2">
-          {submissions.length === 0
-            ? "Awaiting agents…"
-            : `${submissions.length} agent submission${submissions.length > 1 ? "s" : ""}`}
-        </p>
-
-        <div className="flex flex-col gap-2">
-          {submissions.map((s) => {
-            const won = status === "Completed" && task.winner.toLowerCase() === s.agent.toLowerCase();
-            return (
-              <div
-                key={s.agent}
-                className={`rounded-lg border p-2.5 ${
-                  won ? "border-settle/40 bg-settle/5" : "border-line-soft bg-inset"
-                }`}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="h-6 w-6 shrink-0 rounded-full bg-gradient-to-br from-accent to-settle" />
-                    <a
-                      href={addressUrl(s.agent)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mono text-[12px] text-ink hover:underline"
-                    >
-                      {shortAddr(s.agent)}
-                    </a>
-                    {won && <span className="chip border-settle/40 text-settle">Paid</span>}
-                    <span className="text-[10px] text-faint">{timeAgo(s.submittedAt)}</span>
-                  </div>
-                  {open && isValidator && (
-                    <button className="btn-settle px-2.5 py-1 text-[12px]" disabled={busy} onClick={() => pay(s.agent)}>
-                      {busy ? "…" : "Pay agent ↗"}
-                    </button>
-                  )}
-                </div>
-                <p className="mt-2 whitespace-pre-wrap font-mono text-[11.5px] leading-relaxed text-muted">
-                  {s.resultURI}
-                </p>
-              </div>
-            );
-          })}
+      {/* body */}
+      {verified ? (
+        <div className="mt-4 rounded-lg border border-line-soft bg-inset p-3">
+          {status === "Completed" ? (
+            <p className="text-[12px] text-settle">
+              ✓ Auto-settled to solver{" "}
+              <a href={addressUrl(task.winner)} target="_blank" rel="noreferrer" className="mono hover:underline">
+                {shortAddr(task.winner)}
+              </a>{" "}
+              — verified & paid on-chain, no human.
+            </p>
+          ) : (
+            <p className="text-[12px] text-muted">
+              <span className="text-accent">Trustless.</span> Any agent that submits a valid answer is paid{" "}
+              automatically in the same transaction. Run the worker to solve it.
+            </p>
+          )}
         </div>
+      ) : (
+        <div className="mt-4 border-t border-line-soft pt-3">
+          <p className="eyebrow mb-2">
+            {submissions.length === 0
+              ? "Awaiting agents…"
+              : `${submissions.length} submission${submissions.length > 1 ? "s" : ""}`}
+          </p>
+          <div className="flex flex-col gap-2">
+            {submissions.map((s) => {
+              const won = status === "Completed" && task.winner.toLowerCase() === s.agent.toLowerCase();
+              return (
+                <div
+                  key={s.agent}
+                  className={`rounded-lg border p-2.5 ${won ? "border-settle/40 bg-settle/5" : "border-line-soft bg-inset"}`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="h-6 w-6 shrink-0 rounded-full bg-gradient-to-br from-accent to-settle" />
+                      <a href={addressUrl(s.agent)} target="_blank" rel="noreferrer" className="mono text-[12px] text-ink hover:underline">
+                        {shortAddr(s.agent)}
+                      </a>
+                      {won && <span className="chip border-settle/40 text-settle">Paid</span>}
+                      <span className="text-[10px] text-faint">{timeAgo(s.submittedAt)}</span>
+                    </div>
+                    {open && isValidator && (
+                      <button className="btn-settle px-2.5 py-1 text-[12px]" disabled={busy} onClick={() => call("completeTask", [id, s.agent])}>
+                        {busy ? "…" : "Pay agent ↗"}
+                      </button>
+                    )}
+                  </div>
+                  <p className="mt-2 whitespace-pre-wrap font-mono text-[11.5px] leading-relaxed text-muted">{s.resultURI}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
-        {open && isCreator && submissions.length === 0 && (
-          <button className="btn-ghost mt-3 w-full text-[12px]" disabled={busy} onClick={cancel}>
-            {busy ? "…" : "Cancel & refund escrow"}
-          </button>
-        )}
-        {open && !isValidator && submissions.length > 0 && (
-          <p className="mt-2 text-[11px] text-faint">Only the validator ({shortAddr(task.validator)}) can settle.</p>
-        )}
-      </div>
+      {/* creator controls */}
+      {open && isCreator && (
+        <div className="mt-3 flex gap-2">
+          {expired && (
+            <button className="btn-ghost flex-1 text-[12px]" disabled={busy} onClick={() => call("reclaimExpired", [id])}>
+              {busy ? "…" : "Reclaim expired bounty"}
+            </button>
+          )}
+          {!verified && submissions.length === 0 && !expired && (
+            <button className="btn-ghost flex-1 text-[12px]" disabled={busy} onClick={() => call("cancelTask", [id])}>
+              {busy ? "…" : "Cancel & refund"}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

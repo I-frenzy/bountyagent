@@ -16,6 +16,7 @@ import {
   explorerAddrUrl,
   explorerTxUrl,
   type NetworkId,
+  type Verifiers,
 } from "./arc";
 
 const STORAGE_KEY = "bountyagent-network";
@@ -25,6 +26,7 @@ type NetworkState = {
   setNetwork: (id: NetworkId) => void;
   chain: Chain;
   contract: `0x${string}`;
+  verifiers: Verifiers;
   isLive: boolean;
   isContractConfigured: boolean;
   txUrl: (hash: string) => string;
@@ -55,6 +57,7 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
       setNetwork,
       chain: cfg.chain,
       contract: cfg.contract,
+      verifiers: cfg.verifiers,
       isLive: cfg.live,
       isContractConfigured:
         /^0x[a-fA-F0-9]{40}$/.test(cfg.contract) && !/^0x0+$/.test(cfg.contract),

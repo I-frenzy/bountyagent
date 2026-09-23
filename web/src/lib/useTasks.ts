@@ -36,7 +36,7 @@ export function useTasks(pollMs = 10_000): State {
         address: contract,
         abi: bountyEngineAbi,
         functionName: "taskCount",
-      })) as bigint;
+      })) as unknown as bigint;
 
       const ids: bigint[] = [];
       for (let i = count; i >= 1n; i--) ids.push(i); // newest first
@@ -49,13 +49,13 @@ export function useTasks(pollMs = 10_000): State {
               abi: bountyEngineAbi,
               functionName: "getTask",
               args: [id],
-            }) as Promise<ChainTask>,
+            }) as unknown as Promise<ChainTask>,
             publicClient.readContract({
               address: contract,
               abi: bountyEngineAbi,
               functionName: "getSubmissions",
               args: [id],
-            }) as Promise<ChainSubmission[]>,
+            }) as unknown as Promise<ChainSubmission[]>,
           ]);
           return { id, task, submissions };
         }),

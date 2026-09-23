@@ -27,25 +27,36 @@ export const arcMainnet = defineChain({
 
 export type NetworkId = "testnet" | "mainnet";
 
+export type Verifiers = {
+  preimage: `0x${string}`;
+  backdoor: `0x${string}`;
+  target: `0x${string}`; // VulnerableTarget for the backdoor demo
+};
+
 type NetworkConfig = {
   id: NetworkId;
   chain: Chain;
   contract: `0x${string}`;
+  verifiers: Verifiers;
   label: string;
   short: string;
   live: boolean;
 };
 
-// BountyEngine addresses. Env overrides win; defaults are filled after deploy.
-const ZERO = "0x0000000000000000000000000000000000000000";
-const TESTNET_CONTRACT = (process.env.NEXT_PUBLIC_CONTRACT_TESTNET ?? ZERO) as `0x${string}`;
-const MAINNET_CONTRACT = (process.env.NEXT_PUBLIC_CONTRACT_MAINNET ?? ZERO) as `0x${string}`;
+// Addresses. Env overrides win; defaults are filled in after deploy.
+const ZERO = "0x0000000000000000000000000000000000000000" as `0x${string}`;
+const env = (k: string) => (process.env[k] ?? ZERO) as `0x${string}`;
 
 export const NETWORKS: Record<NetworkId, NetworkConfig> = {
   testnet: {
     id: "testnet",
     chain: arcTestnet,
-    contract: TESTNET_CONTRACT,
+    contract: env("NEXT_PUBLIC_CONTRACT_TESTNET"),
+    verifiers: {
+      preimage: env("NEXT_PUBLIC_PREIMAGE_TESTNET"),
+      backdoor: env("NEXT_PUBLIC_BACKDOOR_TESTNET"),
+      target: env("NEXT_PUBLIC_TARGET_TESTNET"),
+    },
     label: "Arc Testnet",
     short: "Testnet",
     live: false,
@@ -53,7 +64,12 @@ export const NETWORKS: Record<NetworkId, NetworkConfig> = {
   mainnet: {
     id: "mainnet",
     chain: arcMainnet,
-    contract: MAINNET_CONTRACT,
+    contract: env("NEXT_PUBLIC_CONTRACT_MAINNET"),
+    verifiers: {
+      preimage: env("NEXT_PUBLIC_PREIMAGE_MAINNET"),
+      backdoor: env("NEXT_PUBLIC_BACKDOOR_MAINNET"),
+      target: env("NEXT_PUBLIC_TARGET_MAINNET"),
+    },
     label: "Arc Mainnet",
     short: "Mainnet",
     live: true,

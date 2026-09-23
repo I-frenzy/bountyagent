@@ -21,21 +21,22 @@ export default function Page() {
             <span className="h-1.5 w-1.5 rounded-full bg-settle" /> Live on Arc · native USDC
           </span>
           <h1 className="mt-4 max-w-3xl font-display text-4xl font-semibold leading-[1.05] tracking-tightest text-ink sm:text-5xl">
-            A labor market where <span className="text-accent">software earns</span>.
+            A labor market where <span className="text-accent">software earns</span>, and the{" "}
+            <span className="text-settle">chain is the judge</span>.
           </h1>
           <p className="mt-4 max-w-2xl text-[15px] leading-relaxed text-muted">
-            Post an objective with a native-USDC bounty locked in on-chain escrow. Autonomous agents
-            discover it, do the work off-chain, and submit proof. The validator approves a winner and
-            the bounty settles to the agent&apos;s wallet in under a second — machine-to-machine, no
-            intermediary.
+            Post an objective with a native-USDC bounty in on-chain escrow. In <span className="text-accent">Verified</span>{" "}
+            mode a smart-contract verifier judges the answer and pays the winning agent{" "}
+            <span className="text-settle">atomically, in one transaction</span> — no human, fully trustless,
+            front-run-proof via commit-reveal. A Curated mode with a human validator handles open-ended work.
           </p>
 
           <div className="mt-6 flex flex-wrap gap-2 text-[11px]">
             {[
-              "1 · createTask() locks USDC",
-              "2 · agent discovers via events",
-              "3 · submitResult() on-chain",
-              "4 · completeTask() pays instantly",
+              "1 · createVerifiedTask() locks USDC",
+              "2 · agent solves + commits",
+              "3 · reveal → verifier checks on-chain",
+              "4 · valid answer auto-pays instantly",
             ].map((s) => (
               <span key={s} className="chip border-line text-faint">
                 {s}

@@ -1,33 +1,28 @@
 // BountyAgent autonomous worker.
 //
-// A machine that earns: it watches Arc for TaskCreated events, does the
-// requested work off-chain (Gemini or a deterministic fallback), and submits
-// its result on-chain. When the task's validator approves it, the escrowed
-// native USDC settles straight to this wallet — no human in the loop.
+// A machine that earns. It watches Arc for new tasks and handles both modes:
+//
+//   VERIFIED — solves the task (preimage / backdoor), commits an answer, waits
+//              a block, then reveals. If the on-chain verifier accepts it, the
+//              escrow settles to this wallet atomically. No human in the loop.
+//   CURATED  — does the work (Gemini / heuristic) and submits a result for a
+//              human/agent validator to approve.
 //
 //   node agent-worker.js          # run forever, watching for new tasks
-//   node agent-worker.js --once   # process any currently-open tasks, then exit
+//   node agent-worker.js --once   # process currently-open tasks, then exit
 //
-// Env (see .env.example):
-//   WORKER_PRIVATE_KEY   0x-prefixed key of a burner agent wallet (needs a
-//                        little USDC for gas on Arc)
-//   ARC_NETWORK          "testnet" (default) or "mainnet"
-//   CONTRACT_ADDRESS     BountyEngine address (overrides the built-in default)
-//   GEMINI_API_KEY       optional — enables real LLM work
+// Env (see .env.example): WORKER_PRIVATE_KEY, ARC_NETWORK, CONTRACT_ADDRESS,
+// optional GEMINI_API_KEY.
 
 import { readFileSync } from "node:fs";
+import { randomBytes } from "node:crypto";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-  createPublicClient,
-  createWalletClient,
-  defineChain,
-  formatEther,
-  http,
-} from "viem";
+import { createPublicClient, createWalletClient, defineChain, formatEther, http, toHex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { BOUNTY_ENGINE_ABI } from "./abi.js";
+import { BOUNTY_ENGINE_ABI, MODE, STATUS } from "./abi.js";
 import { doWork } from "./analyzer.js";
+import { solveVerified } from "./solver.js";
 
 // --- tiny .env loader (no dependency) ---------------------------------------
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -41,7 +36,6 @@ try {
   /* no .env file — rely on real env */
 }
 
-// --- chains -----------------------------------------------------------------
 const CHAINS = {
   testnet: defineChain({
     id: 5042002,
@@ -60,18 +54,12 @@ const CHAINS = {
   }),
 };
 
-const DEFAULT_CONTRACT = {
-  testnet: process.env.CONTRACT_ADDRESS || "0x0000000000000000000000000000000000000000",
-  mainnet: process.env.CONTRACT_ADDRESS || "0x0000000000000000000000000000000000000000",
-};
-
-// --- config -----------------------------------------------------------------
 const NETWORK = (process.env.ARC_NETWORK || "testnet").toLowerCase();
 const chain = CHAINS[NETWORK];
 if (!chain) throw new Error(`unknown ARC_NETWORK "${NETWORK}"`);
 
-const CONTRACT = (process.env.CONTRACT_ADDRESS || DEFAULT_CONTRACT[NETWORK]);
-if (!/^0x[0-9a-fA-F]{40}$/.test(CONTRACT) || /^0x0+$/.test(CONTRACT)) {
+const CONTRACT = process.env.CONTRACT_ADDRESS;
+if (!CONTRACT || !/^0x[0-9a-fA-F]{40}$/.test(CONTRACT) || /^0x0+$/.test(CONTRACT)) {
   throw new Error("Set CONTRACT_ADDRESS to the deployed BountyEngine address.");
 }
 
@@ -80,22 +68,40 @@ if (!pk) throw new Error("Set WORKER_PRIVATE_KEY (a burner agent wallet).");
 const account = privateKeyToAccount(pk.startsWith("0x") ? pk : `0x${pk}`);
 
 const ONCE = process.argv.includes("--once");
-
 const publicClient = createPublicClient({ chain, transport: http() });
 const walletClient = createWalletClient({ account, chain, transport: http() });
+const seen = new Set();
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const txUrl = (h) => `${chain.blockExplorers.default.url}/tx/${h}`;
+const clip = (s, n) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
 
-const seen = new Set(); // taskIds we've already handled this run
-
-// --- work loop --------------------------------------------------------------
-async function handleTask(taskId, spec, validator, reward) {
+async function handleTask(taskId) {
   const id = taskId.toString();
   if (seen.has(id)) return;
   seen.add(id);
 
-  // don't work tasks we validate or that are already ours
-  if (validator?.toLowerCase() === account.address.toLowerCase()) return;
+  const t = await publicClient.readContract({
+    address: CONTRACT,
+    abi: BOUNTY_ENGINE_ABI,
+    functionName: "getTask",
+    args: [taskId],
+  });
+  if (Number(t.status) !== STATUS.Open) return;
 
-  // skip if already submitted (e.g. on a restart)
+  try {
+    if (Number(t.mode) === MODE.Verified) {
+      await handleVerified(taskId, t);
+    } else {
+      await handleCurated(taskId, t);
+    }
+  } catch (err) {
+    console.error(`  ✗ task #${id}: ${err.shortMessage || err.message}`);
+    seen.delete(id); // allow retry
+  }
+}
+
+async function handleCurated(taskId, t) {
+  if (t.validator.toLowerCase() === account.address.toLowerCase()) return;
   const already = await publicClient.readContract({
     address: CONTRACT,
     abi: BOUNTY_ENGINE_ABI,
@@ -104,47 +110,70 @@ async function handleTask(taskId, spec, validator, reward) {
   });
   if (already) return;
 
-  console.log(`\n▸ Task #${id}  reward ${formatEther(reward)} USDC`);
-  console.log(`  spec: ${clip(spec, 120)}`);
+  console.log(`\n▸ Task #${taskId} [curated]  reward ${formatEther(t.reward)} USDC`);
+  const result = await doWork(t.spec);
+  console.log(`  work done (${result.length} chars) — submitting…`);
+  const hash = await walletClient.writeContract({
+    address: CONTRACT,
+    abi: BOUNTY_ENGINE_ABI,
+    functionName: "submitResult",
+    args: [taskId, result],
+  });
+  await publicClient.waitForTransactionReceipt({ hash });
+  console.log(`  ✓ submitted: ${txUrl(hash)} (awaiting validator)`);
+}
 
-  const result = await doWork(spec);
-  console.log(`  work done (${result.length} chars). Submitting on-chain…`);
+async function handleVerified(taskId, t) {
+  console.log(`\n▸ Task #${taskId} [verified]  reward ${formatEther(t.reward)} USDC`);
+  console.log(`  spec: ${clip(t.spec.replace(/\s+/g, " "), 100)}`);
 
-  try {
-    const hash = await walletClient.writeContract({
-      address: CONTRACT,
-      abi: BOUNTY_ENGINE_ABI,
-      functionName: "submitResult",
-      args: [taskId, result],
-    });
-    await publicClient.waitForTransactionReceipt({ hash });
-    const url = `${chain.blockExplorers.default.url}/tx/${hash}`;
-    console.log(`  ✓ submitted: ${url}`);
-    console.log(`  awaiting validator approval → payout of ${formatEther(reward)} USDC`);
-  } catch (err) {
-    console.error(`  ✗ submit failed: ${err.shortMessage || err.message}`);
-    seen.delete(id); // allow a retry next tick
+  const solution = solveVerified(t.spec, t.taskData);
+  if (!solution) {
+    console.log("  – can't solve this task type; skipping.");
+    return;
   }
+  console.log(`  solved: ${solution.human}. Committing…`);
+
+  const salt = toHex(randomBytes(32));
+  const commitment = await publicClient.readContract({
+    address: CONTRACT,
+    abi: BOUNTY_ENGINE_ABI,
+    functionName: "computeCommitment",
+    args: [solution.answer, salt, account.address],
+  });
+
+  const commitHash = await walletClient.writeContract({
+    address: CONTRACT,
+    abi: BOUNTY_ENGINE_ABI,
+    functionName: "commitAnswer",
+    args: [taskId, commitment],
+  });
+  const receipt = await publicClient.waitForTransactionReceipt({ hash: commitHash });
+  console.log(`  ✓ committed (block ${receipt.blockNumber}): ${txUrl(commitHash)}`);
+
+  // reveal must land in a strictly later block (front-run protection)
+  while ((await publicClient.getBlockNumber()) <= receipt.blockNumber) await sleep(300);
+
+  const before = await publicClient.getBalance({ address: account.address });
+  const revealHash = await walletClient.writeContract({
+    address: CONTRACT,
+    abi: BOUNTY_ENGINE_ABI,
+    functionName: "revealAndClaim",
+    args: [taskId, solution.answer, salt],
+  });
+  await publicClient.waitForTransactionReceipt({ hash: revealHash });
+  const after = await publicClient.getBalance({ address: account.address });
+  console.log(`  ✓ revealed & CLAIMED: ${txUrl(revealHash)}`);
+  console.log(`  💰 net to agent (reward − gas): ${formatEther(after - before)} USDC`);
 }
 
 async function sweepOpenTasks() {
-  // On startup, process any tasks that are already open (Status.Open == 0).
   const count = await publicClient.readContract({
     address: CONTRACT,
     abi: BOUNTY_ENGINE_ABI,
     functionName: "taskCount",
   });
-  for (let i = 1n; i <= count; i++) {
-    const t = await publicClient.readContract({
-      address: CONTRACT,
-      abi: BOUNTY_ENGINE_ABI,
-      functionName: "getTask",
-      args: [i],
-    });
-    if (Number(t.status) === 0) {
-      await handleTask(i, t.spec, t.validator, t.reward);
-    }
-  }
+  for (let i = 1n; i <= count; i++) await handleTask(i);
 }
 
 async function main() {
@@ -157,7 +186,6 @@ async function main() {
   console.log(`  brain   : ${process.env.GEMINI_API_KEY ? "Gemini" : "heuristic (offline)"}`);
 
   await sweepOpenTasks();
-
   if (ONCE) {
     console.log("\n--once: done.");
     return;
@@ -170,18 +198,11 @@ async function main() {
     eventName: "TaskCreated",
     onLogs: (logs) => {
       for (const log of logs) {
-        const { taskId, spec, validator, reward } = log.args;
-        handleTask(taskId, spec, validator, reward).catch((e) =>
-          console.error("handleTask error:", e.message)
-        );
+        handleTask(log.args.taskId).catch((e) => console.error("handleTask:", e.message));
       }
     },
     onError: (e) => console.error("watch error:", e.message),
   });
-}
-
-function clip(str, n) {
-  return str.length > n ? str.slice(0, n - 1) + "…" : str;
 }
 
 main().catch((e) => {
