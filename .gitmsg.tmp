@@ -1,8 +1,0 @@
-Make bounty rows click-to-expand
-
-Each row is now a collapsible summary (id, status, mode, amount + a
-"hint · time" affordance with a rotating caret). Clicking expands to reveal the
-full description, meta, verified auto-pay/settled notes, curated submissions
-(agent + result text + Pay action), and creator reclaim/cancel controls.
-Verified via headless-Chrome CDP: aria-expanded flips and hidden content
-(auto-pay note, submissions) appears on click.
