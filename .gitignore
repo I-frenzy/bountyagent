@@ -20,3 +20,4 @@ design-import/
 # misc
 .DS_Store
 *.log
+.gitmsg.tmp
