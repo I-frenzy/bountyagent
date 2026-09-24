@@ -43,19 +43,20 @@ type NetworkConfig = {
   live: boolean;
 };
 
-// Addresses. Env overrides win; defaults are filled in after deploy.
+// Addresses. Env overrides win; defaults are the live testnet deploy (2026-09-24).
 const ZERO = "0x0000000000000000000000000000000000000000" as `0x${string}`;
+const def = (k: string, fallback: string) => (process.env[k] ?? fallback) as `0x${string}`;
 const env = (k: string) => (process.env[k] ?? ZERO) as `0x${string}`;
 
 export const NETWORKS: Record<NetworkId, NetworkConfig> = {
   testnet: {
     id: "testnet",
     chain: arcTestnet,
-    contract: env("NEXT_PUBLIC_CONTRACT_TESTNET"),
+    contract: def("NEXT_PUBLIC_CONTRACT_TESTNET", "0x9A7a66fc35b9237FD88E7f9fccC82A830eF90Ade"),
     verifiers: {
-      preimage: env("NEXT_PUBLIC_PREIMAGE_TESTNET"),
-      backdoor: env("NEXT_PUBLIC_BACKDOOR_TESTNET"),
-      target: env("NEXT_PUBLIC_TARGET_TESTNET"),
+      preimage: def("NEXT_PUBLIC_PREIMAGE_TESTNET", "0x8bCa2402420198103d709e2777A4Ca4620f4B9Ee"),
+      backdoor: def("NEXT_PUBLIC_BACKDOOR_TESTNET", "0x8F19eCab548AC6c0A3b673a99EDb37eC7F8638ff"),
+      target: def("NEXT_PUBLIC_TARGET_TESTNET", "0x78bB16fCca4374FE19B23C1a02258a7eC754f39C"),
     },
     label: "Arc Testnet",
     short: "Testnet",
