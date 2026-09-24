@@ -17,6 +17,8 @@ solve it and get paid. Two settlement modes:
 
 Built for the **Circle Arc Microgrants**.
 
+> New session, or new to this repo? Read **[PROJECT_JOURNAL.md](PROJECT_JOURNAL.md)** first — it covers the goal, every major decision and why, the full build history, and what's left. This file below stays the technical reference.
+
 ---
 
 ## Why this design wins
