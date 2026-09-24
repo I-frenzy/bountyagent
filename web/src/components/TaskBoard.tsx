@@ -1,9 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { TaskCard } from "./TaskCard";
 import type { TaskWithSubs } from "@/lib/useTasks";
-import { fmtUsdc } from "@/lib/format";
 
 type Filter = "all" | "open" | "completed";
 
@@ -20,17 +19,11 @@ export function TaskBoard({
 }) {
   const [filter, setFilter] = useState<Filter>("all");
 
-  const stats = useMemo(() => {
-    let openEscrow = 0n;
-    let subs = 0;
-    let completed = 0;
-    for (const t of tasks) {
-      subs += t.submissions.length;
-      if (t.task.status === 0) openEscrow += t.task.reward;
-      if (t.task.status === 1) completed += 1;
-    }
-    return { openEscrow, subs, completed };
-  }, [tasks]);
+  const counts = {
+    all: tasks.length,
+    open: tasks.filter((t) => t.task.status === 0).length,
+    completed: tasks.filter((t) => t.task.status === 1).length,
+  };
 
   const shown = tasks.filter((t) => {
     if (filter === "open") return t.task.status === 0;
@@ -38,38 +31,88 @@ export function TaskBoard({
     return true;
   });
 
-  return (
-    <div>
-      {/* stats strip */}
-      <div className="mb-4 grid grid-cols-3 gap-3">
-        <Stat label="Open escrow" value={`${fmtUsdc(stats.openEscrow)} USDC`} accent />
-        <Stat label="Agent submissions" value={String(stats.subs)} />
-        <Stat label="Tasks settled" value={String(stats.completed)} settle />
-      </div>
+  const firstLoad = loading && tasks.length === 0;
 
-      <div className="mb-3 flex items-center justify-between">
-        <div className="inline-flex rounded-lg border border-line bg-inset p-0.5 text-[12px]">
+  return (
+    <div className="flex min-w-0 flex-col gap-5">
+      {/* header */}
+      <div className="flex flex-wrap items-end gap-x-6 gap-y-2">
+        <h2 className="m-0 text-4xl font-medium leading-none tracking-tighter text-verdict md:text-5xl">
+          Bounty board
+        </h2>
+        {loading && (
+          <span className="inline-flex items-center gap-1.5 pb-1.5 font-mono text-[11.5px] text-muted">
+            <i className="ph ph-arrows-clockwise" />
+            POLLING
+          </span>
+        )}
+        <div role="tablist" className="ml-auto flex gap-5 text-sm">
           {(["all", "open", "completed"] as const).map((f) => (
             <button
               key={f}
+              role="tab"
+              aria-selected={filter === f}
               onClick={() => setFilter(f)}
-              className={`rounded-md px-3 py-1 font-medium capitalize transition ${
-                filter === f ? "bg-elevated text-ink" : "text-faint hover:text-muted"
+              className={`py-1.5 capitalize ${
+                filter === f ? "text-verdict shadow-[inset_0_-2px_0_#FFFFFF]" : "text-muted hover:text-ink"
               }`}
             >
-              {f}
+              {f} <span className="font-mono text-muted">{counts[f]}</span>
             </button>
           ))}
         </div>
-        {loading && <span className="eyebrow animate-pulse2">syncing…</span>}
       </div>
 
+      {/* body */}
       {!configured ? (
-        <Empty msg="No BountyEngine deployed on this network yet. Switch network or deploy the contract." />
+        <Empty
+          title="Not deployed here"
+          body="BountyAgent isn't deployed on this network yet. Switch to Testnet to see the live board."
+        />
+      ) : firstLoad ? (
+        <div className="flex flex-col gap-2.5">
+          {["85%", "70%", "78%"].map((w, i) => (
+            <div key={i} className="flex animate-shimmer flex-col gap-3 border border-rule p-5">
+              <div className="flex items-center gap-2.5">
+                <span className="h-2.5 w-9 bg-rule" />
+                <span className="h-2.5 w-16 bg-rule" />
+                <span className="h-4 w-[70px] bg-rule" />
+                <span className="ml-auto h-6 w-28 bg-rule" />
+              </div>
+              <span className="h-2.5 bg-hair" style={{ width: w }} />
+              <span className="h-2.5 w-2/5 bg-hair" />
+            </div>
+          ))}
+        </div>
       ) : shown.length === 0 ? (
-        <Empty msg={loading ? "Loading tasks…" : "No tasks yet. Post the first bounty →"} />
+        filter === "all" ? (
+          <div className="flex flex-col items-start gap-3.5 border border-dashed border-edge p-8">
+            <span aria-hidden className="grid h-11 w-11 grid-cols-2 border-2 border-verdict">
+              <span />
+              <span />
+            </span>
+            <span className="text-3xl font-medium leading-none tracking-tighter text-verdict">No tasks yet.</span>
+            <span className="text-sm leading-relaxed text-sub">
+              Escrow is empty on this network. Post the first bounty; agents polling this contract will pick it up
+              within seconds.
+            </span>
+          </div>
+        ) : (
+          <div className="flex flex-col items-start gap-2 border border-rule bg-panel p-6">
+            <span className="text-lg font-medium text-verdict">No {filter} tasks yet</span>
+            <span className="text-[13.5px] text-muted">
+              {counts.open} {counts.open === 1 ? "bounty is" : "bounties are"} still open.
+            </span>
+            <button
+              className="font-mono text-[11.5px] font-medium uppercase tracking-wide2 text-verdict underline underline-offset-4"
+              onClick={() => setFilter("all")}
+            >
+              Show all
+            </button>
+          </div>
+        )
       ) : (
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <div className="flex flex-col gap-2.5">
           {shown.map((t) => (
             <TaskCard key={t.id.toString()} item={t} onChange={onChange} />
           ))}
@@ -79,33 +122,11 @@ export function TaskBoard({
   );
 }
 
-function Stat({
-  label,
-  value,
-  accent,
-  settle,
-}: {
-  label: string;
-  value: string;
-  accent?: boolean;
-  settle?: boolean;
-}) {
+function Empty({ title, body }: { title: string; body: string }) {
   return (
-    <div className="card p-3.5">
-      <p className="eyebrow">{label}</p>
-      <p
-        className={`mt-1 font-display text-lg font-semibold ${
-          accent ? "text-accent" : settle ? "text-settle" : "text-ink"
-        }`}
-      >
-        {value}
-      </p>
+    <div className="flex flex-col items-start gap-2 border border-dashed border-edge p-8">
+      <span className="text-2xl font-medium tracking-tighter text-verdict">{title}</span>
+      <span className="max-w-md text-sm leading-relaxed text-sub">{body}</span>
     </div>
-  );
-}
-
-function Empty({ msg }: { msg: string }) {
-  return (
-    <div className="card grid place-items-center p-10 text-center text-sm text-faint">{msg}</div>
   );
 }

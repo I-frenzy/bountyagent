@@ -31,3 +31,18 @@ export function timeAgo(unixSeconds: bigint | number): string {
 export function isZero(addr: string): boolean {
   return /^0x0+$/.test(addr);
 }
+
+/** Ledger amount: always 2 decimals, tabular-friendly (e.g. "250.00"). */
+export function fmtAmount(wei: bigint): string {
+  const n = Number(formatEther(wei));
+  if (!isFinite(n)) return "0.00";
+  return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+/** Derive a human challenge label from a verified task's spec tag. */
+export function challengeLabel(spec: string): string | null {
+  const s = spec.toLowerCase();
+  if (s.includes("solver:backdoor")) return "Backdoor CTF";
+  if (s.includes("solver:preimage")) return "Preimage";
+  return null;
+}

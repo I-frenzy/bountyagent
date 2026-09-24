@@ -11,63 +11,93 @@ html {
 }
 
 body {
-  background:
-    radial-gradient(1200px 600px at 80% -10%, rgba(76, 130, 251, 0.08), transparent 60%),
-    radial-gradient(900px 500px at 0% 0%, rgba(52, 211, 153, 0.05), transparent 55%),
-    #080a0f;
+  background: #0a0a0a;
+  color: #ededed;
 }
 
-/* subtle scanline/grid texture for the institutional feel */
-.grid-texture {
-  background-image: linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
-  background-size: 44px 44px;
+/* Ledger interaction states — themed, never browser defaults. */
+:focus {
+  outline: none;
+}
+:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+::selection {
+  background: #ffffff;
+  color: #0a0a0a;
+}
+
+/* Hazard hatch — real money / danger. Reads in grayscale by design. */
+.hazard {
+  background: repeating-linear-gradient(135deg, #ffffff 0 6px, #0a0a0a 6px 12px);
+}
+.hazard-soft {
+  background: repeating-linear-gradient(135deg, #ffffff 0 4px, #d4d4d4 4px 8px);
+}
+.hazard-thin {
+  background: repeating-linear-gradient(135deg, #ffffff 0 4px, #0a0a0a 4px 8px);
 }
 
 @layer components {
-  .card {
-    @apply rounded-xl border border-line bg-panel shadow-panel;
-  }
-  .inset-field {
-    @apply w-full rounded-lg border border-line bg-inset px-3 py-2.5 text-sm text-ink
-      placeholder:text-faint outline-none transition
-      focus:border-accent/70 focus:ring-2 focus:ring-accent/20;
-  }
+  /* — buttons — */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm
-      font-medium transition disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 font-sans text-sm font-medium
+      transition-colors disabled:cursor-not-allowed disabled:opacity-40;
   }
+  /* Primary = solid white with black text (spends money / commits). */
   .btn-primary {
-    @apply btn bg-accent text-white hover:bg-accent-deep;
+    @apply btn bg-verdict text-ground hover:bg-body;
   }
-  .btn-ghost {
-    @apply btn border border-line bg-elevated text-ink hover:border-line hover:bg-line-soft;
+  /* Secondary = 1px edge outline on transparent. */
+  .btn-secondary {
+    @apply btn border border-edge bg-transparent text-ink hover:border-verdict;
   }
-  .btn-settle {
-    @apply btn bg-settle/15 text-settle border border-settle/40 hover:bg-settle/25;
+  .btn-tertiary {
+    @apply btn border border-rule bg-transparent text-ink hover:border-edge;
   }
-  .chip {
-    @apply inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px]
-      font-medium uppercase tracking-widest2;
+
+  /* — stamps (mono, uppercase) — */
+  .stamp {
+    @apply inline-flex items-center gap-1.5 bg-verdict px-1.5 py-[3px] font-mono text-[10.5px]
+      font-medium uppercase tracking-wide3 text-ground;
   }
-  .eyebrow {
-    @apply text-[11px] font-medium uppercase tracking-widest2 text-faint;
+  .stamp-outline {
+    @apply inline-flex items-center gap-1.5 border border-edge px-1.5 py-[2px] font-mono
+      text-[10.5px] font-medium uppercase tracking-wide3 text-ink;
   }
+
+  /* — forms — */
+  .kicker {
+    @apply font-mono text-[11px] font-medium uppercase tracking-wide3 text-muted;
+  }
+  .field-input {
+    @apply w-full bg-ground px-3 py-2.5 font-sans text-sm text-ink placeholder:text-edge
+      border border-rule outline-none transition-colors
+      hover:border-edge focus:border-verdict;
+  }
+  textarea.field-input {
+    @apply min-h-[120px] resize-y leading-relaxed;
+  }
+
   .mono {
-    @apply font-mono text-[13px];
+    @apply font-mono;
   }
 }
 
-/* thin scrollbars */
+/* thin monochrome scrollbars */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #212836 transparent;
+  scrollbar-color: #262626 transparent;
 }
 *::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 *::-webkit-scrollbar-thumb {
-  background: #212836;
-  border-radius: 8px;
+  background: #262626;
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
 }

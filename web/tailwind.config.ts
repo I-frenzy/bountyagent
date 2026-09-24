@@ -1,57 +1,72 @@
 import type { Config } from "tailwindcss";
 
+/**
+ * "Ledger" — a monochrome system. Black / white / gray only, no colored accent.
+ * White is reserved for what the chain has decided or what spends money
+ * (the OPEN live line, the VERIFIED / PAID stamps, primary actions, amounts).
+ * Risk (Mainnet, expired, reverted) is shown with a hatched hazard pattern,
+ * never a hue — so it survives grayscale and screenshots.
+ */
 const config: Config = {
   content: ["./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
       colors: {
-        // Institutional dark "trading desk" palette.
-        void: "#080A0F", // page background
-        panel: "#0F131B", // card surface
-        elevated: "#151A24", // raised surface / hover
-        inset: "#0B0E14", // inputs / recessed
-        line: "#212836", // hairline border
-        "line-soft": "#1A202C",
-        ink: "#E8ECF4", // primary text
-        muted: "#8B95A8", // secondary text
-        faint: "#5A6478", // tertiary / placeholder
-        // accents
-        accent: "#4C82FB", // Circle-blue primary
-        "accent-deep": "#3667D6",
-        settle: "#34D399", // payout / success green
-        pending: "#F5B14C", // awaiting / amber
-        danger: "#F26D6D",
-        // aliases so stray utilities resolve
-        usdc: "#4C82FB",
+        // 9-step ink scale (ink-0 = void … ink-8 = verdict)
+        void: "#000000",
+        ground: "#0A0A0A", // page
+        panel: "#111111", // forms, menus, elevated surfaces
+        raise: "#1A1A1A", // hover / info toast
+        rule: "#262626", // primary hairline
+        hair: "#1F1F1F", // section rules
+        edge: "#4D4D4D", // secondary outline
+        muted: "#8C8C8C", // tertiary text
+        sub: "#B3B3B3", // secondary body
+        body: "#D4D4D4", // body text
+        ink: "#EDEDED", // default text
+        verdict: "#FFFFFF", // the chain's word / money
       },
       fontFamily: {
-        display: ["var(--font-display)", "system-ui", "sans-serif"],
-        sans: ["var(--font-sans)", "system-ui", "sans-serif"],
-        mono: ["var(--font-mono)", "ui-monospace", "monospace"],
+        sans: ["Geist", "system-ui", "sans-serif"],
+        mono: ["Geist Mono", "ui-monospace", "monospace"],
       },
-      letterSpacing: { tightest: "-0.03em", widest2: "0.22em" },
-      boxShadow: {
-        panel: "0 1px 0 0 rgba(255,255,255,0.03) inset, 0 8px 30px -12px rgba(0,0,0,0.6)",
-        glow: "0 0 0 1px rgba(76,130,251,0.4), 0 8px 30px -8px rgba(76,130,251,0.35)",
+      letterSpacing: {
+        tightest: "-0.065em",
+        tighter: "-0.05em",
+        tight2: "-0.03em",
+        wide2: "0.06em",
+        wide3: "0.08em",
+        wide4: "0.1em",
+      },
+      borderRadius: {
+        none: "0",
+        DEFAULT: "0", // square everywhere by default
+        sm: "0",
+        md: "0",
+        lg: "0",
+        full: "9999px", // only for dots / avatars
       },
       keyframes: {
-        rise: {
-          "0%": { opacity: "0", transform: "translateY(10px)" },
-          "100%": { opacity: "1", transform: "translateY(0)" },
+        pulseRing: {
+          "0%": { boxShadow: "0 0 0 0 rgba(255,255,255,.6)" },
+          "70%": { boxShadow: "0 0 0 8px rgba(255,255,255,0)" },
+          "100%": { boxShadow: "0 0 0 0 rgba(255,255,255,0)" },
         },
-        "toast-in": {
-          "0%": { opacity: "0", transform: "translateY(16px)" },
-          "100%": { opacity: "1", transform: "translateY(0)" },
-        },
-        pulse2: {
-          "0%,100%": { opacity: "1" },
-          "50%": { opacity: "0.35" },
-        },
+        blink: { "0%,49%": { opacity: "1" }, "50%,100%": { opacity: "0" } },
+        shimmer: { "0%": { opacity: ".35" }, "50%": { opacity: ".8" }, "100%": { opacity: ".35" } },
+        spin: { to: { transform: "rotate(360deg)" } },
+        ticker: { from: { transform: "translateX(0)" }, to: { transform: "translateX(-50%)" } },
+        toastIn: { "0%": { opacity: "0", transform: "translateY(12px)" }, "100%": { opacity: "1", transform: "translateY(0)" } },
+        rowIn: { "0%": { opacity: "0", transform: "translateY(8px)" }, "100%": { opacity: "1", transform: "translateY(0)" } },
       },
       animation: {
-        rise: "rise 0.6s cubic-bezier(0.16,1,0.3,1) both",
-        "toast-in": "toast-in 0.4s cubic-bezier(0.16,1,0.3,1) both",
-        pulse2: "pulse2 1.6s ease-in-out infinite",
+        pulseRing: "pulseRing 2s ease-out infinite",
+        blink: "blink 1.2s steps(1) infinite",
+        shimmer: "shimmer 1.2s infinite",
+        spin: "spin 1s linear infinite",
+        ticker: "ticker 40s linear infinite",
+        toastIn: "toastIn .4s cubic-bezier(0.16,1,0.3,1) both",
+        rowIn: "rowIn .5s cubic-bezier(0.16,1,0.3,1) both",
       },
     },
   },
