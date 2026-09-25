@@ -84,7 +84,7 @@ mainnet.
 - ✅ Security pass: CI (tests, coverage, Slither, Aderyn) on every push; every
   High/Medium finding triaged in SECURITY.md (one real fix: events before
   payouts). Coverage: evaluator 100%, TestVector 100%, engine 97% branches.
-- ⏳ Next: testnet rehearsal of the full stack, then F2 (ERC-8004).
+- ⏳ Next: F7 multi-claim (contract), then testnet rehearsal, then F8 + F2.
 - Finding (2026-09-25): the current board draws **40× HTTP 429** from the
   public Arc RPC on one page load → the Multicall data layer (§6) is required,
   not optional.
@@ -131,10 +131,56 @@ evaluator is trusted; ours isn't), not a rival marketplace.
 |---|---|---|
 | F1 | **ERC-8183 `VerifierEvaluator`** + our mainnet ERC-8183 instance | An 8183 job on **mainnet** completes with zero human action via our adapter |
 | F2 | **ERC-8004 identity + verified track record** (canonical mainnet registries) | Worker has a mainnet 8004 identity; each verified win writes a reputation entry; profile UI shows it. Weighted by bounty size + creator diversity (anti wash-trading), stated openly |
-| F3 | **Test-vector verifier** ("implement this interface, pass these vectors") | Factory makes deploy+reveal atomic; vectors partly derived at reveal from `blockhash(block.number-1)` (PREVRANDAO is 0 on Arc) so hard-coded lookup tables fail; one real example solved end-to-end on mainnet |
+| F3 | **Test-vector verifier** ("implement this interface, pass these vectors") | ✅ Built (no factory needed; seed = `blockhash(commitBlock+1)`). Remaining: one real example solved end-to-end on mainnet |
 | F4 | **Arc cost & speed receipts** | See §6 — real receipt data only |
 | F5 | **MCP server + agent SDK** | A Claude agent with only our MCP server and a funded key finds and wins a mainnet bounty |
 | F6 | **Task permalinks + agent leaderboard** | Shareable `/task/[id]` shows the full lifecycle with receipts |
+| F7 | **Multi-claim bounties** (added 2026-09-25, inspired by Bountycaster) | One pool pays up to N winners an equal share, in both modes — see below |
+| F8 | **People mode: bounties for humans** (added 2026-09-25) | A person with a wallet can post, submit, and get paid entirely from the website, with no agent involved — see below |
+
+### F7 — Multi-claim bounties (contract change → lands before the testnet rehearsal)
+- Creator sets `maxWinners` (1–50); the bounty is split equally
+  (`reward % maxWinners == 0`, so no dust). `maxWinners = 1` is today's behaviour.
+- **Curated:** the validator approves winners one at a time; each address can
+  win once; each approval pays one share immediately. The task completes when
+  all shares are paid. The validator can also **finalize early**, which refunds
+  the unpaid shares to the creator (so a poster who's happy with 3 of 5 doesn't
+  wait for the deadline). After the deadline, the creator reclaims unpaid shares.
+- **Verified:** the first N valid revealers are paid. **Commits close at the
+  first successful reveal**: once an answer is public, nobody new can commit to
+  it (and re-committing is blocked), so later winners must have committed
+  before seeing any answer. Verifiers can use the `solver` argument to require
+  a different answer per solver (e.g. per-agent data).
+- Storage: `paidCount`, `hasWon[task][addr]`, `getWinners(task)`; `reward`
+  stays the total. The invariant becomes: engine balance == Σ (reward −
+  paid) over open tasks. New attack tests: duplicate winner, over-paying,
+  post-reveal copying, early finalize by a non-validator, rounding.
+
+### F8 — People mode (escrow kept — see decision below)
+Bountycaster shows the demand: people post and do bounties themselves, and the
+poster decides who gets paid. BountyAgent's Curated mode already *is* this —
+poster (or a validator they name) decides — but today only an agent can submit,
+from code. F8 makes it usable by people:
+- **Submit from the site:** on any Curated bounty, a "Submit your work" box
+  (text or link), signed with the person's wallet.
+- **Posting for people:** a "Who is this for: Anyone / People / Agents" choice.
+  It's a label stored in the spec, not enforced — a contract can't tell a person
+  from a bot, and we say so.
+- **Reviewing:** the poster sees submissions and taps **Pay** (exists), or
+  pays several with F7.
+- **Plain language:** People-mode pages avoid "commit/reveal/verifier"; a short
+  "How to get USDC on Arc" guide; mobile-first.
+- Later (Tier 2): post by tagging a bot on X/Farcaster (the Bountycaster
+  pattern), and sign-in wallets (Circle wallets / passkeys) for people who have
+  no crypto wallet.
+
+**Decision (recommended, pending user confirmation): keep the escrow.**
+Bountycaster is pay-later on trust: the poster can simply never pay, and the
+only recourse is emailing support. People mode keeps everything that makes it
+easy — the poster still decides — but the money is locked when the bounty is
+posted, so a person who does the work knows it's really there, and the deadline
+refunds the poster if nobody's work is chosen. A pay-later mode would remove the
+one thing a contract adds here and bring back "the poster never paid".
 
 Tier 2 (roadmap section of the submission, not built now): gasless "first
 dollar" relay (needs earliest-committer-wins — a relayer could withhold a
@@ -294,9 +340,10 @@ All contract work lands first → one audit pass, one mainnet deploy.
 
 | Dates | Work |
 |---|---|
-| Sep 25–27 | Contract v3 (§2), cleanup (§3), attack tests + invariants (§7) |
-| Sep 28–30 | F3 verifier + factory; F1 VerifierEvaluator; ERC-8183 instance config — contracts frozen; Slither/Aderyn/coverage |
-| Oct 1 | Testnet rehearsal of the full set (incl. F1 against the canonical testnet 8183) |
+| Sep 25 | ✅ Contract v3, cleanup, F3, F1, attack tests + invariants, CI with Slither/Aderyn, SECURITY.md (5 days ahead) |
+| Sep 26–27 | **F7 multi-claim** in the engine + tests + re-run security pass — then contracts frozen |
+| Sep 28 | Testnet rehearsal of the full set (incl. F1 against the canonical testnet 8183) |
+| Sep 29–Oct 1 | F8 People mode (submit box, audience label, plain-language pages) + F2 prep |
 | Oct 2 | **Mainnet deploy** from the user's wallet; verify sources; Tally; mainnet dress rehearsal (launch gate 2) |
 | Oct 2–4 | F2 ERC-8004 on mainnet (registration, reputation writes, profile) |
 | Oct 4–6 | Frontend: §6 pages, receipts/proof band, Multicall data layer, mainnet default |
