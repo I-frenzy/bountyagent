@@ -1,0 +1,20 @@
+{
+  "chainId": 5042,
+  "contracts": {
+    "AgenticCommerce": "0x6e5fBdaf9444d60A40Dd4B35960A594EBCc6343A",
+    "BackdoorVerifier": "0x8F19eCab548AC6c0A3b673a99EDb37eC7F8638ff",
+    "BountyEngine": "0x9A7a66fc35b9237FD88E7f9fccC82A830eF90Ade",
+    "PopcountReference": "0x6600FCb6904a27B6E8a4DA03c22cb5A0718d5e71",
+    "PreimageVerifier": "0x8bCa2402420198103d709e2777A4Ca4620f4B9Ee",
+    "TestVectorVerifier": "0x78bB16fCca4374FE19B23C1a02258a7eC754f39C",
+    "VerifierEvaluator": "0xdBAdd9Ec8EE73563c2e9E5B781f6b8F438c4FC4E",
+    "VulnerableTarget": "0x0f81a6fcC23bafed624Dc5F92A1F46F028204Ad7"
+  },
+  "deployer": "0xDFE783E927Eec2c10815A4a1910a797c65D20ef2",
+  "external": {
+    "ERC-8004 IdentityRegistry": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+    "ERC-8004 ReputationRegistry": "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63",
+    "USDC (ERC-20 view)": "0x3600000000000000000000000000000000000000"
+  },
+  "network": "arc-mainnet"
+}
