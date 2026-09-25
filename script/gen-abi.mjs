@@ -27,3 +27,20 @@ writeFileSync(
 );
 
 console.log(`ABI (${artifact.abi.length} entries) written to web/src/lib/bountyAbi.ts and worker/abi.js`);
+
+// --- worker extras: ERC-8183 evaluator/commerce ABIs + the reference agent's
+// popcount implementation (compiled without CBOR metadata, so it passes
+// TestVectorVerifier's purity scan). ---
+const art = (p) => JSON.parse(readFileSync(join(root, "out", p), "utf8"));
+const evaluator = art("VerifierEvaluator.sol/VerifierEvaluator.json");
+const commerce = art("AgenticCommerce.sol/AgenticCommerce.json");
+const popcount = art("TestVectorVerifier.t.sol/PopcountFast.json");
+writeFileSync(
+  join(root, "worker/artifacts.js"),
+  `${header}` +
+    `export const EVALUATOR_ABI = ${JSON.stringify(evaluator.abi)};\n\n` +
+    `export const COMMERCE_ABI = ${JSON.stringify(commerce.abi)};\n\n` +
+    `/** Creation bytecode of a bit-parallel popcount (see test/TestVectorVerifier.t.sol:PopcountFast). */\n` +
+    `export const POPCOUNT_FAST_BYTECODE = "${popcount.bytecode.object}";\n`,
+);
+console.log("worker/artifacts.js written (evaluator, commerce, popcount)");

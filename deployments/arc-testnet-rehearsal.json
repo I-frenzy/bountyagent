@@ -1,0 +1,267 @@
+{
+  "network": "arc-testnet",
+  "ranAt": "2026-09-25T10:04:25.512Z",
+  "flows": [
+    {
+      "name": "ERC-8004 profile for the reference agent",
+      "steps": [
+        {
+          "label": "register ERC-8004 identity",
+          "tx": "0xab71906a45dadac0488c54ca6840b49c0397123953c4c457c5ebb21ea0063f96",
+          "block": 63913562,
+          "feeUsdc": "0.012507225",
+          "url": "https://explorer.testnet.arc.io/tx/0xab71906a45dadac0488c54ca6840b49c0397123953c4c457c5ebb21ea0063f96"
+        },
+        {
+          "label": "linkAgent(896857)",
+          "tx": "0xf8d1b94830880072f6fdc445b6d83f5e730b5c32bcb5b341ff6b065349a505c2",
+          "block": 63913565,
+          "feeUsdc": "0.001401675",
+          "url": "https://explorer.testnet.arc.io/tx/0xf8d1b94830880072f6fdc445b6d83f5e730b5c32bcb5b341ff6b065349a505c2"
+        }
+      ]
+    },
+    {
+      "name": "Curated bounty (poster decides)",
+      "steps": [
+        {
+          "label": "createTask 0.10 USDC",
+          "tx": "0x0cc81a2bc2a7f16edc78c02247a7f2bc2a57975c183d60406ef598f87f31c7a8",
+          "block": 63913568,
+          "feeUsdc": "0.005737725",
+          "url": "https://explorer.testnet.arc.io/tx/0x0cc81a2bc2a7f16edc78c02247a7f2bc2a57975c183d60406ef598f87f31c7a8"
+        },
+        {
+          "label": "submitResult #1",
+          "tx": "0x188ebbfc5b020be5c087762aa1a3b7450c1448bba59ef7a7a40b6c0ea9bbc511",
+          "block": 63913570,
+          "feeUsdc": "0.0041882",
+          "url": "https://explorer.testnet.arc.io/tx/0x188ebbfc5b020be5c087762aa1a3b7450c1448bba59ef7a7a40b6c0ea9bbc511"
+        },
+        {
+          "label": "completeTask #1 → worker",
+          "tx": "0x81ce5006fba83f6bd295466bba0fe1fe753fc8c61a813de7a51b0d35bf506743",
+          "block": 63913573,
+          "feeUsdc": "0.00848925",
+          "url": "https://explorer.testnet.arc.io/tx/0x81ce5006fba83f6bd295466bba0fe1fe753fc8c61a813de7a51b0d35bf506743"
+        }
+      ],
+      "checks": [
+        "worker received the 0.10 USDC"
+      ]
+    },
+    {
+      "name": "Verified bounty: backdoor CTF (commit → reveal, auto-pay)",
+      "steps": [
+        {
+          "label": "createVerifiedTask 0.10 USDC",
+          "tx": "0x077a0b774a47568157c8d2718cdcff95f3559407266b4d48119d1e8ea22b0496",
+          "block": 63913576,
+          "feeUsdc": "0.00765165",
+          "url": "https://explorer.testnet.arc.io/tx/0x077a0b774a47568157c8d2718cdcff95f3559407266b4d48119d1e8ea22b0496"
+        },
+        {
+          "label": "commitAnswer #2",
+          "tx": "0xed1c229e9b0085b567fb5d413b4e982fac6ca98eaa6e0ed703269553f857e9ae",
+          "block": 63913579,
+          "feeUsdc": "0.002495025",
+          "url": "https://explorer.testnet.arc.io/tx/0xed1c229e9b0085b567fb5d413b4e982fac6ca98eaa6e0ed703269553f857e9ae"
+        },
+        {
+          "label": "revealAndClaim #2 (1337)",
+          "tx": "0xc023baf16925e0cdc43b039545c83e463f9681ba7d7fd3ce024a5ca01dee396a",
+          "block": 63913591,
+          "feeUsdc": "0.006892475",
+          "url": "https://explorer.testnet.arc.io/tx/0xc023baf16925e0cdc43b039545c83e463f9681ba7d7fd3ce024a5ca01dee396a"
+        }
+      ],
+      "checks": [
+        "paid automatically in the reveal transaction",
+        "win recorded on ERC-8004 reputation",
+        "getSummary(verified) from the engine = 1"
+      ]
+    },
+    {
+      "name": "Multi-winner bounty: 3 × 0.03, two paid, finish early",
+      "steps": [
+        {
+          "label": "fund a third test wallet 0.02",
+          "tx": "0xc7035369b9291f0d25312ad8f92572c83120dbe1ad734ba32693ef06519e626c",
+          "block": 63913595,
+          "url": "https://explorer.testnet.arc.io/tx/0xc7035369b9291f0d25312ad8f92572c83120dbe1ad734ba32693ef06519e626c"
+        },
+        {
+          "label": "createTask 3 × 0.03 USDC",
+          "tx": "0x9c9703abc3580c2256407cfe6c2a3272af85c9985f9d77f96a15efd3691f4e7f",
+          "block": 63913598,
+          "feeUsdc": "0.0058803",
+          "url": "https://explorer.testnet.arc.io/tx/0x9c9703abc3580c2256407cfe6c2a3272af85c9985f9d77f96a15efd3691f4e7f"
+        },
+        {
+          "label": "submitResult #3 (worker)",
+          "tx": "0x3cd24b113146c6f75401d72637302a5d32160b4fdbc3f638d2b0a0555c80e4bd",
+          "block": 63913601,
+          "feeUsdc": "0.0041906",
+          "url": "https://explorer.testnet.arc.io/tx/0x3cd24b113146c6f75401d72637302a5d32160b4fdbc3f638d2b0a0555c80e4bd"
+        },
+        {
+          "label": "submitResult #3 (third)",
+          "tx": "0x111bc0b8b65a62052ca7dfe2e95dc4bb4366a4b49248f9560b79134ec25bc486",
+          "block": 63913604,
+          "feeUsdc": "0.0037616",
+          "url": "https://explorer.testnet.arc.io/tx/0x111bc0b8b65a62052ca7dfe2e95dc4bb4366a4b49248f9560b79134ec25bc486"
+        },
+        {
+          "label": "completeTask #3 → worker",
+          "tx": "0x7fdf7a5797f9adda1f0a263ee4f0847ee36bb2de69ebbdd2e40ec0b30919cfc4",
+          "block": 63913613,
+          "feeUsdc": "0.00638095",
+          "url": "https://explorer.testnet.arc.io/tx/0x7fdf7a5797f9adda1f0a263ee4f0847ee36bb2de69ebbdd2e40ec0b30919cfc4"
+        },
+        {
+          "label": "completeTask #3 → third",
+          "tx": "0xbafec493587c84c152d4868be7cf3244d7ff22f0292ec634b81e6a0cadba883d",
+          "block": 63913616,
+          "feeUsdc": "0.002593625",
+          "url": "https://explorer.testnet.arc.io/tx/0xbafec493587c84c152d4868be7cf3244d7ff22f0292ec634b81e6a0cadba883d"
+        },
+        {
+          "label": "finalizeTask #3 (refund 1 share)",
+          "tx": "0x8610b478c0f26b507a83f77e59b7a3460a4e0681efff0dedeb9b3b798dea4619",
+          "block": 63913619,
+          "feeUsdc": "0.00116255",
+          "url": "https://explorer.testnet.arc.io/tx/0x8610b478c0f26b507a83f77e59b7a3460a4e0681efff0dedeb9b3b798dea4619"
+        }
+      ],
+      "checks": [
+        "unpaid share (0.03) refunded to the creator"
+      ]
+    },
+    {
+      "name": "Implementation bounty: deploy popcount that passes fresh random tests",
+      "steps": [
+        {
+          "label": "createVerifiedTask popcount 0.10 USDC",
+          "tx": "0x129a9a700994ab945cf11012ba3331eb532b11425ef56e3fe4dfb54626fe4cd1",
+          "block": 63913622,
+          "feeUsdc": "0.0122481",
+          "url": "https://explorer.testnet.arc.io/tx/0x129a9a700994ab945cf11012ba3331eb532b11425ef56e3fe4dfb54626fe4cd1"
+        },
+        {
+          "label": "commitAnswer #4 (predicted 0x8639fF…)",
+          "tx": "0x08d3d31cb44f546c5aaa03a5dfa6998dd4f690f4d3d846dd4d0bb37bc2558b85",
+          "block": 63913626,
+          "feeUsdc": "0.002494725",
+          "url": "https://explorer.testnet.arc.io/tx/0x08d3d31cb44f546c5aaa03a5dfa6998dd4f690f4d3d846dd4d0bb37bc2558b85"
+        },
+        {
+          "label": "deploy popcount implementation",
+          "tx": "0x9238f85be0adbb558c47f4ff96c66795c3cdccd0e2fcc3a6aa95308ff60ac362",
+          "block": 63913632,
+          "url": "https://explorer.testnet.arc.io/tx/0x9238f85be0adbb558c47f4ff96c66795c3cdccd0e2fcc3a6aa95308ff60ac362"
+        },
+        {
+          "label": "revealAndClaim #4 (tests run on-chain)",
+          "tx": "0x4dead3d376f2deed6f986ee62187b6358623949411dba13fb72c920a823db66e",
+          "block": 63913635,
+          "feeUsdc": "0.023874775",
+          "url": "https://explorer.testnet.arc.io/tx/0x4dead3d376f2deed6f986ee62187b6358623949411dba13fb72c920a823db66e"
+        }
+      ],
+      "checks": [
+        "deployed exactly at the committed address",
+        "implementation passed 19 on-chain tests and was paid"
+      ]
+    },
+    {
+      "name": "ERC-8183 job on Arc's own contract, settled by VerifierEvaluator",
+      "steps": [
+        {
+          "label": "commerce.createJob (evaluator = ours)",
+          "tx": "0x55e624bb2e1757736939f67027b077d9795e7139c3e0d0f2976d77298a020445",
+          "block": 63913638,
+          "feeUsdc": "0.00563055",
+          "url": "https://explorer.testnet.arc.io/tx/0x55e624bb2e1757736939f67027b077d9795e7139c3e0d0f2976d77298a020445"
+        },
+        {
+          "label": "evaluator.configure(#186717, preimage)",
+          "tx": "0x10a52e225e9e9a46af569521dc67a8e93e4eb174c52209affad257c2f525de6a",
+          "block": 63913641,
+          "feeUsdc": "0.003243125",
+          "url": "https://explorer.testnet.arc.io/tx/0x10a52e225e9e9a46af569521dc67a8e93e4eb174c52209affad257c2f525de6a"
+        },
+        {
+          "label": "commerce.setBudget(#186717, 0.05)",
+          "tx": "0x42c913a9f1a6046380d01556fda9ad112a024829a249a91e61da85f1b0585978",
+          "block": 63913651,
+          "feeUsdc": "0.0020531",
+          "url": "https://explorer.testnet.arc.io/tx/0x42c913a9f1a6046380d01556fda9ad112a024829a249a91e61da85f1b0585978"
+        },
+        {
+          "label": "USDC.approve(exact budget)",
+          "tx": "0x630a8854da92af8b5cc31677e75da5f4d0af427adc3c19fc84c6f7fac578e69a",
+          "block": 63913654,
+          "feeUsdc": "0.00138565",
+          "url": "https://explorer.testnet.arc.io/tx/0x630a8854da92af8b5cc31677e75da5f4d0af427adc3c19fc84c6f7fac578e69a"
+        },
+        {
+          "label": "commerce.fund(#186717)",
+          "tx": "0xc650586d4cac3436c2711be63091aa0b6c22962f67c3de57bb731c2f035b6ffe",
+          "block": 63913657,
+          "feeUsdc": "0.0024021",
+          "url": "https://explorer.testnet.arc.io/tx/0xc650586d4cac3436c2711be63091aa0b6c22962f67c3de57bb731c2f035b6ffe"
+        },
+        {
+          "label": "evaluator.commit(#186717)",
+          "tx": "0xa55d5ecad118ac10f56378e7b319cc0732dd1e59868b8a67be3ad8f642c65587",
+          "block": 63913659,
+          "feeUsdc": "0.002615475",
+          "url": "https://explorer.testnet.arc.io/tx/0xa55d5ecad118ac10f56378e7b319cc0732dd1e59868b8a67be3ad8f642c65587"
+        },
+        {
+          "label": "commerce.submit(#186717)",
+          "tx": "0xe1f4d7cdad3fce38668ba30b1ff3fbd3305601b2da9a61508caee77cff40f56b",
+          "block": 63913662,
+          "feeUsdc": "0.001043075",
+          "url": "https://explorer.testnet.arc.io/tx/0xe1f4d7cdad3fce38668ba30b1ff3fbd3305601b2da9a61508caee77cff40f56b"
+        },
+        {
+          "label": "evaluator.settle(#186717, \"orbit\")",
+          "tx": "0x7aa280954b9af94b3bfc469065a94dd9d94ad465a8ba90be35b0dfd3c2433d9b",
+          "block": 63913665,
+          "feeUsdc": "0.00308325",
+          "url": "https://explorer.testnet.arc.io/tx/0x7aa280954b9af94b3bfc469065a94dd9d94ad465a8ba90be35b0dfd3c2433d9b"
+        }
+      ],
+      "checks": [
+        "Arc's ERC-8183 job is Completed — no person evaluated it",
+        "provider received the job budget in USDC"
+      ]
+    },
+    {
+      "name": "Cancel before anyone engages (full refund)",
+      "steps": [
+        {
+          "label": "createTask 0.01 USDC",
+          "tx": "0xeb8fbbc6b5b7057f77fc83818c61816ef0eadcb9c19af44370d9b5ac34c0a2b4",
+          "block": 63913668,
+          "feeUsdc": "0.0041816",
+          "url": "https://explorer.testnet.arc.io/tx/0xeb8fbbc6b5b7057f77fc83818c61816ef0eadcb9c19af44370d9b5ac34c0a2b4"
+        },
+        {
+          "label": "cancelTask #5",
+          "tx": "0x590b9de990988b511bcc2db5a3b120ef6a3e9fbbc8ac140084966145bd57b181",
+          "block": 63913670,
+          "feeUsdc": "0.00116555",
+          "url": "https://explorer.testnet.arc.io/tx/0x590b9de990988b511bcc2db5a3b120ef6a3e9fbbc8ac140084966145bd57b181"
+        }
+      ]
+    }
+  ],
+  "agentId": "896857",
+  "erc8183JobId": "186717",
+  "summary": {
+    "transactions": 29,
+    "totalFeesUsdc": "0.1388"
+  }
+}

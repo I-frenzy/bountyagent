@@ -1,0 +1,21 @@
+{
+  "network": "arc-testnet",
+  "chainId": 5042002,
+  "deployedAt": "2026-09-25",
+  "deployer": "0xDFE783E927Eec2c10815A4a1910a797c65D20ef2",
+  "contracts": {
+    "BountyEngine": "0x6f525E678aEf9088c0b5eA227FAaed850E206D08",
+    "PreimageVerifier": "0xeB3389D66b6D6fDF0e674b33A77B6d20bca19a05",
+    "BackdoorVerifier": "0xF0703618D8BDe4B20260538543e36C08d1a78Ea9",
+    "TestVectorVerifier": "0x1952Bb6EebbA7D029EA3cf3e8427afA31dC1911A",
+    "VulnerableTarget": "0x6f1EeEc22E7D9024C63474175ED1355ee77C9492",
+    "PopcountReference": "0x5cD597906B6705ea8698Cd3e8769C216240838a3",
+    "VerifierEvaluator": "0x382B40F21c4A278a2e7d156d6310D7389ca71C58"
+  },
+  "external": {
+    "AgenticCommerce (ERC-8183, Arc's own testnet instance)": "0x0747EEf0706327138c69792bF28Cd525089e4583",
+    "ERC-8004 IdentityRegistry": "0x8004A818BFB912233c491871b3d84c89A494BD9e",
+    "ERC-8004 ReputationRegistry": "0x8004B663056A597Dffe9eCcC1965A193B7388713",
+    "USDC (ERC-20 view)": "0x3600000000000000000000000000000000000000"
+  }
+}
