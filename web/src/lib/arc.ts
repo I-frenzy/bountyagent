@@ -73,7 +73,8 @@ type NetworkConfig = {
   live: boolean;
 };
 
-// Addresses. Env overrides win; testnet falls back to the live deploy (2026-09-25, deployments/arc-testnet.json).
+// Addresses. Env overrides win; testnet and mainnet fall back to the live deploys
+// (2026-09-25, deployments/arc-testnet.json and deployments/arc-mainnet.json).
 // Each variable must be read as a literal `process.env.NEXT_PUBLIC_…` so Next.js
 // inlines it into the browser bundle — a dynamic `process.env[name]` lookup is
 // undefined client-side (it silently disabled every override before).
@@ -138,21 +139,21 @@ export const NETWORKS: Record<NetworkId, NetworkConfig> = {
   mainnet: {
     id: "mainnet",
     chain: arcMainnet,
-    contract: addr(process.env.NEXT_PUBLIC_CONTRACT_MAINNET),
+    contract: addr(process.env.NEXT_PUBLIC_CONTRACT_MAINNET, "0x9A7a66fc35b9237FD88E7f9fccC82A830eF90Ade"),
     verifiers: {
-      preimage: addr(process.env.NEXT_PUBLIC_PREIMAGE_MAINNET),
-      backdoor: addr(process.env.NEXT_PUBLIC_BACKDOOR_MAINNET),
-      target: addr(process.env.NEXT_PUBLIC_TARGET_MAINNET),
+      preimage: addr(process.env.NEXT_PUBLIC_PREIMAGE_MAINNET, "0x8bCa2402420198103d709e2777A4Ca4620f4B9Ee"),
+      backdoor: addr(process.env.NEXT_PUBLIC_BACKDOOR_MAINNET, "0x8F19eCab548AC6c0A3b673a99EDb37eC7F8638ff"),
+      target: addr(process.env.NEXT_PUBLIC_TARGET_MAINNET, "0x0f81a6fcC23bafed624Dc5F92A1F46F028204Ad7"),
     },
     erc8004: {
       identity: "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
       reputation: "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63",
     },
     extras: {
-      testVector: addr(process.env.NEXT_PUBLIC_TESTVECTOR_MAINNET),
-      popcountReference: addr(process.env.NEXT_PUBLIC_POPCOUNT_MAINNET),
-      evaluator: addr(process.env.NEXT_PUBLIC_EVALUATOR_MAINNET),
-      commerce: addr(process.env.NEXT_PUBLIC_COMMERCE_MAINNET),
+      testVector: addr(process.env.NEXT_PUBLIC_TESTVECTOR_MAINNET, "0x78bB16fCca4374FE19B23C1a02258a7eC754f39C"),
+      popcountReference: addr(process.env.NEXT_PUBLIC_POPCOUNT_MAINNET, "0x6600FCb6904a27B6E8a4DA03c22cb5A0718d5e71"),
+      evaluator: addr(process.env.NEXT_PUBLIC_EVALUATOR_MAINNET, "0xdBAdd9Ec8EE73563c2e9E5B781f6b8F438c4FC4E"),
+      commerce: addr(process.env.NEXT_PUBLIC_COMMERCE_MAINNET, "0x6e5fBdaf9444d60A40Dd4B35960A594EBCc6343A"),
     },
     label: "Arc Mainnet",
     short: "Mainnet",

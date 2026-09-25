@@ -90,8 +90,14 @@ deployments files.
 
 ## 6 · Point the website at mainnet (**You**)
 
+The live mainnet addresses are built into `web/src/lib/arc.ts` as fallbacks, so
+these variables are **optional** — set them only to point the site at a
+different deployment. If you do, type the values in (don't pipe them through
+Windows PowerShell, which prepends an invisible BOM); `addr()` strips stray
+whitespace/BOMs and ignores anything that isn't a 20-byte hex address.
+
 In Vercel → project `bountyagent` → Settings → Environment Variables (Production),
-add these from `deployments/arc-mainnet.json`:
+the optional overrides are:
 
 | Variable | Value |
 |---|---|
