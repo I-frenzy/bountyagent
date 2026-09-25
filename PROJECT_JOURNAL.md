@@ -335,7 +335,7 @@ Then the user reported the site "not loading". What was really going on:
   commit, so pushes never deploy. The site only changes through the Vercel CLI,
   and the CLI on this machine is logged out (`vercel whoami` starts a device
   login). Until someone runs `vercel login` + `vercel --prod` from `web/`, the
-  live site keeps serving the old, crashing build. Tracked as a GitHub issue.
+  live site keeps serving the old, crashing build. Tracked in GitHub issue #1.
 
 Lesson: config that can be derived from the repo (immutable contract addresses)
 should live in the repo, with env vars as optional overrides. That removes a
