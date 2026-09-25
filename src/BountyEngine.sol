@@ -2,6 +2,7 @@
 pragma solidity 0.8.30;
 
 import {IBountyVerifier} from "./IBountyVerifier.sol";
+import {IIdentityRegistry, IReputationRegistry} from "./erc8004/IERC8004.sol";
 
 /**
  * @title BountyEngine
@@ -37,6 +38,18 @@ import {IBountyVerifier} from "./IBountyVerifier.sol";
 contract BountyEngine {
     // --- Provenance (identity only; no privileges) -------------------------
     address public immutable owner;
+
+    // --- ERC-8004 (identity + reputation); address(0) disables it ------------
+    IIdentityRegistry public immutable identityRegistry;
+    IReputationRegistry public immutable reputationRegistry;
+    /// Gas reserved for recording a win on the reputation registry. A payout
+    /// reverts if it can't give the registry this much, so nobody can starve
+    /// the call to deny a winner their record — but a registry failure never
+    /// blocks the payout itself.
+    uint256 public constant FEEDBACK_GAS = 400_000;
+    string public constant FEEDBACK_TAG = "bountyagent";
+    /// Gas cap for each identity lookup (ownerOf / getAgentWallet) on the payout path.
+    uint256 public constant LOOKUP_GAS = 60_000;
 
     // --- Limits ------------------------------------------------------------
     /// Every task must expire, so a junk submission/commit can never lock an
@@ -134,12 +147,17 @@ contract BountyEngine {
     error NotExpired();
     error TransferFailed();
     error Reentrant();
+    error NoIdentityRegistry();
+    error NotAgentOwner();
+    error InsufficientGasForFeedback();
 
     // --- Storage -----------------------------------------------------------
     uint256 public taskCount;
     mapping(uint256 => Task) private _tasks;
     mapping(uint256 => address[]) private _winners;
     mapping(uint256 => mapping(address => bool)) public hasWon;
+    /// Profile link: the ERC-8004 agent (profile) an address has claimed.
+    mapping(address => uint256) public agentIdOf;
 
     // curated submissions
     mapping(uint256 => Submission[]) private _submissions;
@@ -168,9 +186,14 @@ contract BountyEngine {
     event WinnerPaid(uint256 indexed taskId, address indexed winner, uint256 amount, Mode mode);
     /// The task left Open: all shares paid, finalized early, cancelled or expired.
     event TaskClosed(uint256 indexed taskId, Status status, uint16 winners, uint256 refunded);
+    event AgentLinked(address indexed account, uint256 indexed agentId);
+    /// A paid win was written to the ERC-8004 reputation registry (or not, with the reason).
+    event ReputationRecorded(uint256 indexed taskId, address indexed winner, uint256 indexed agentId, bool ok);
 
-    constructor() {
+    constructor(IIdentityRegistry identity_, IReputationRegistry reputation_) {
         owner = msg.sender;
+        identityRegistry = identity_;
+        reputationRegistry = reputation_;
     }
 
     // =======================================================================
@@ -381,6 +404,72 @@ contract BountyEngine {
     }
 
     // =======================================================================
+    //                   PROFILES (ERC-8004 identity) + REPUTATION
+    // =======================================================================
+
+    /**
+     * @notice Link your ERC-8004 identity (your profile) to your address, so
+     *         your wins here are recorded on it. You must own the agent NFT or
+     *         be its registered agent wallet. Pass 0 to unlink.
+     */
+    function linkAgent(uint256 agentId) external {
+        if (address(identityRegistry) == address(0)) revert NoIdentityRegistry();
+        if (agentId != 0 && !_controls(msg.sender, agentId)) revert NotAgentOwner();
+        agentIdOf[msg.sender] = agentId;
+        emit AgentLinked(msg.sender, agentId);
+    }
+
+    /// True if `account` owns agent `agentId` or is its agent wallet. Never reverts.
+    function _controls(address account, uint256 agentId) private view returns (bool) {
+        try identityRegistry.ownerOf{gas: LOOKUP_GAS}(agentId) returns (address o) {
+            if (o == account) return true;
+        } catch {
+            return false; // agent doesn't exist
+        }
+        try identityRegistry.getAgentWallet{gas: LOOKUP_GAS}(agentId) returns (address w) {
+            return w == account;
+        } catch {
+            return false;
+        }
+    }
+
+    /**
+     * Writes a paid win to the ERC-8004 reputation registry, as feedback *from
+     * this contract*: value = USDC earned (6 decimals), tag1 = "bountyagent",
+     * tag2 = "verified" (checked by a contract) or "curated" (chosen by a
+     * person). Readers who filter by this contract's address get a record that
+     * can't be faked with reviews. Never blocks the payout: the call is capped,
+     * wrapped, and skipped if the winner no longer controls the linked agent.
+     */
+    function _recordReputation(uint256 taskId, Task storage t, address winner, uint256 share) private {
+        if (address(reputationRegistry) == address(0)) return;
+        uint256 agentId = agentIdOf[winner];
+        if (agentId == 0) return;
+        // Make sure the lookups and the registry get their full budgets (63/64
+        // rule) BEFORE any of them run, so a caller can't starve a call into
+        // failing and silently drop the winner's record.
+        if (gasleft() < ((FEEDBACK_GAS + 2 * LOOKUP_GAS) * 64) / 63 + 20_000) revert InsufficientGasForFeedback();
+        if (!_controls(winner, agentId)) {
+            emit ReputationRecorded(taskId, winner, agentId, false);
+            return;
+        }
+        bool ok;
+        try reputationRegistry.giveFeedback{gas: FEEDBACK_GAS}(
+            agentId,
+            int128(int256(share / 1e12)), // native 18-dec USDC → 6-dec USDC
+            6,
+            FEEDBACK_TAG,
+            t.mode == Mode.Verified ? "verified" : "curated",
+            "",
+            "",
+            bytes32(taskId)
+        ) {
+            ok = true;
+        } catch {}
+        emit ReputationRecorded(taskId, winner, agentId, ok);
+    }
+
+    // =======================================================================
     //                              INTERNAL / VIEWS
     // =======================================================================
 
@@ -409,6 +498,7 @@ contract BountyEngine {
 
         emit WinnerPaid(taskId, winner, share, t.mode);
         if (last) emit TaskClosed(taskId, Status.Completed, t.paidCount, 0);
+        _recordReputation(taskId, t, winner, share);
         _pay(winner, share);
     }
 

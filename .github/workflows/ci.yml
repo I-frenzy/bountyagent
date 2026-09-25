@@ -20,8 +20,11 @@ jobs:
       - uses: foundry-rs/foundry-toolchain@v1
       - name: Build
         run: forge build --sizes
-      - name: Test (unit, attack, fuzz, invariant)
+      - name: Test (unit, attack, fuzz, invariant, ERC-8004 mainnet fork)
         run: forge test -vv
+        env:
+          # read-only fork of Arc mainnet for the ERC-8004 integration tests
+          ARC_MAINNET_RPC_URL: https://rpc.mainnet.arc.io
       - name: Coverage summary
         run: forge coverage --no-match-contract Invariant --report summary
 

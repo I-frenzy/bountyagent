@@ -11,6 +11,7 @@ import {PopcountReference} from "../src/demo/PopcountReference.sol";
 import {VerifierEvaluator} from "../src/erc8183/VerifierEvaluator.sol";
 import {IERC8183} from "../src/erc8183/IERC8183.sol";
 import {CommerceDeployer} from "./DeployCommerce.s.sol";
+import {IIdentityRegistry, IReputationRegistry} from "../src/erc8004/IERC8004.sol";
 
 /**
  * Deploy the full BountyAgent stack to Arc.
@@ -28,12 +29,27 @@ contract Deploy is Script {
     /// USDC's ERC-20 interface on Arc (mainnet and testnet).
     address constant ARC_USDC = 0x3600000000000000000000000000000000000000;
 
+    /// ERC-8004 registries per chain (canonical deployments, checked on-chain).
+    /// Elsewhere (e.g. a local chain) set IDENTITY_REGISTRY / REPUTATION_REGISTRY,
+    /// or leave them unset to deploy with profiles + reputation disabled.
+    function _erc8004() internal view returns (address identity, address reputation) {
+        if (block.chainid == 5042) {
+            return (0x8004A169FB4a3325136EB29fA0ceB6D2e539a432, 0x8004BAa17C55a88189AE136b182e5fdA19dE9b63);
+        }
+        if (block.chainid == 5042002) {
+            return (0x8004A818BFB912233c491871b3d84c89A494BD9e, 0x8004B663056A597Dffe9eCcC1965A193B7388713);
+        }
+        return (vm.envOr("IDENTITY_REGISTRY", address(0)), vm.envOr("REPUTATION_REGISTRY", address(0)));
+    }
+
     function run() external {
         uint256 pk = vm.envUint("PRIVATE_KEY");
         address commerce = vm.envOr("COMMERCE_ADDRESS", address(0));
 
+        (address identity, address reputation) = _erc8004();
+
         vm.startBroadcast(pk);
-        BountyEngine engine = new BountyEngine();
+        BountyEngine engine = new BountyEngine(IIdentityRegistry(identity), IReputationRegistry(reputation));
         PreimageVerifier preimage = new PreimageVerifier();
         BackdoorVerifier backdoor = new BackdoorVerifier();
         TestVectorVerifier testVector = new TestVectorVerifier();
@@ -53,6 +69,8 @@ contract Deploy is Script {
         console2.log(ownCommerce ? "AgenticCommerce    : (ours, admin renounced)" : "AgenticCommerce    : (existing)");
         console2.log("  address          :", commerce);
         console2.log("VerifierEvaluator  :", address(evaluator));
+        console2.log("ERC-8004 identity  :", identity);
+        console2.log("ERC-8004 reputation:", reputation);
         console2.log("owner (provenance) :", engine.owner());
     }
 }

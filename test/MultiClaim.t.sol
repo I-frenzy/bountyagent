@@ -3,6 +3,7 @@ pragma solidity 0.8.30;
 
 import {Test} from "forge-std/Test.sol";
 import {BountyEngine} from "../src/BountyEngine.sol";
+import {IIdentityRegistry, IReputationRegistry} from "../src/erc8004/IERC8004.sol";
 import {PreimageVerifier} from "../src/verifiers/PreimageVerifier.sol";
 
 /// F7 — one bounty, several paid winners.
@@ -21,7 +22,7 @@ contract MultiClaimTest is Test {
     bytes constant SECRET = "orbit";
 
     function setUp() public {
-        engine = new BountyEngine();
+        engine = new BountyEngine(IIdentityRegistry(address(0)), IReputationRegistry(address(0)));
         preimage = new PreimageVerifier();
         vm.deal(creator, 1000 ether);
     }

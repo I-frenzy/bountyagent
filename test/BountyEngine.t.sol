@@ -3,6 +3,7 @@ pragma solidity 0.8.30;
 
 import {Test} from "forge-std/Test.sol";
 import {BountyEngine} from "../src/BountyEngine.sol";
+import {IIdentityRegistry, IReputationRegistry} from "../src/erc8004/IERC8004.sol";
 import {PreimageVerifier} from "../src/verifiers/PreimageVerifier.sol";
 import {BackdoorVerifier} from "../src/verifiers/BackdoorVerifier.sol";
 import {VulnerableTarget} from "../src/demo/VulnerableTarget.sol";
@@ -31,7 +32,7 @@ contract BountyEngineTest is Test {
     uint64 constant DURATION = 1 days;
 
     function setUp() public {
-        engine = new BountyEngine();
+        engine = new BountyEngine(IIdentityRegistry(address(0)), IReputationRegistry(address(0)));
         preimage = new PreimageVerifier();
         backdoor = new BackdoorVerifier();
         target = new VulnerableTarget();

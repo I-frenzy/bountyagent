@@ -3,6 +3,7 @@ pragma solidity 0.8.30;
 
 import {Test, console2} from "forge-std/Test.sol";
 import {BountyEngine} from "../src/BountyEngine.sol";
+import {IIdentityRegistry, IReputationRegistry} from "../src/erc8004/IERC8004.sol";
 import {PreimageVerifier} from "../src/verifiers/PreimageVerifier.sol";
 
 /// Drives the engine with random actors and random action sequences, while
@@ -152,7 +153,7 @@ contract BountyEngineInvariantTest is Test {
     Handler handler;
 
     function setUp() public {
-        engine = new BountyEngine();
+        engine = new BountyEngine(IIdentityRegistry(address(0)), IReputationRegistry(address(0)));
         handler = new Handler(engine, new PreimageVerifier());
         targetContract(address(handler));
     }

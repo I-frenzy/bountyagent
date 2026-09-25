@@ -3,6 +3,7 @@ pragma solidity 0.8.30;
 
 import {Test} from "forge-std/Test.sol";
 import {BountyEngine} from "../src/BountyEngine.sol";
+import {IIdentityRegistry, IReputationRegistry} from "../src/erc8004/IERC8004.sol";
 import {TestVectorVerifier} from "../src/verifiers/TestVectorVerifier.sol";
 import {PopcountReference} from "../src/demo/PopcountReference.sol";
 
@@ -86,7 +87,7 @@ contract TestVectorVerifierTest is Test {
     uint32 constant GAS_BUDGET = 3_000;
 
     function setUp() public {
-        engine = new BountyEngine();
+        engine = new BountyEngine(IIdentityRegistry(address(0)), IReputationRegistry(address(0)));
         verifier = new TestVectorVerifier();
         ref = new PopcountReference();
         vm.deal(creator, 100 ether);
