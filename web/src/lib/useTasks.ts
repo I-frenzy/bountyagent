@@ -33,11 +33,19 @@ export function useTasks(pollMs = 10_000): State {
   const [tasks, setTasks] = useState<TaskWithSubs[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const busy = useRef(false);
+  // Loads can overlap (a poll, a manual refresh, or the network switching
+  // right after mount). Each load takes a ticket; only the latest one's
+  // result is applied, so a slow load for the previous network can never
+  // overwrite the current one.
+  const ticket = useRef(0);
+  // A poll for the same contract waits for the one in flight instead of
+  // superseding it (a slow RPC would otherwise never let a result land).
+  const inFlight = useRef<string | null>(null);
 
   const load = useCallback(async () => {
-    if (!isContractConfigured || busy.current) return;
-    busy.current = true;
+    if (!isContractConfigured || inFlight.current === contract) return;
+    inFlight.current = contract;
+    const mine = ++ticket.current;
     setLoading(true);
     setError(null);
     try {
@@ -63,12 +71,12 @@ export function useTasks(pollMs = 10_000): State {
           return { id, task, submissions, winners };
         }),
       );
-      setTasks(out);
+      if (mine === ticket.current) setTasks(out);
     } catch (e) {
-      setError((e as Error).message);
+      if (mine === ticket.current) setError((e as Error).message);
     } finally {
-      setLoading(false);
-      busy.current = false;
+      if (mine === ticket.current) setLoading(false);
+      if (inFlight.current === contract) inFlight.current = null;
     }
   }, [publicClient, contract, isContractConfigured]);
 

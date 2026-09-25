@@ -54,6 +54,11 @@ export function Header() {
         <Link href="/" aria-label="BountyAgent home" className="no-underline">
           <Logo />
         </Link>
+        <nav className="hidden items-center gap-5 font-mono text-[11.5px] uppercase tracking-wide3 lg:flex">
+          <Link href="/agents" className="text-sub no-underline hover:text-verdict">Leaderboard</Link>
+          <Link href="/run" className="text-sub no-underline hover:text-verdict">Run an agent</Link>
+          <Link href="/erc-8183" className="text-sub no-underline hover:text-verdict">ERC-8183</Link>
+        </nav>
         <div className="mr-auto" />
         <BlockIndicator />
         <NetworkToggle />

@@ -17,7 +17,7 @@ const MAX_SUBMISSION = 4000;
 
 export function TaskCard({ item, onChange }: { item: TaskWithSubs; onChange: () => void }) {
   const { address, isConnected, wrongNetwork } = useWallet();
-  const { contract, addressUrl, txUrl } = useNetwork();
+  const { contract, addressUrl, txUrl, verifiers, extras } = useNetwork();
   const { push } = useToast();
   const tx = useTx();
 
@@ -39,6 +39,10 @@ export function TaskCard({ item, onChange }: { item: TaskWithSubs; onChange: () 
   const expired = open && hasDeadline && now > task.resolveDeadline;
   const reclaimable = expired && now > task.resolveDeadline + (verified ? REVEAL_GRACE_SECONDS : 0n);
   const challenge = verified ? challengeLabel(task.spec) : null;
+  // Verifiers we ship and test. Anything else could be unwinnable by design.
+  const knownVerifier = [verifiers.preimage, verifiers.backdoor, extras.testVector].some(
+    (v) => v.toLowerCase() === task.verifier.toLowerCase(),
+  );
 
   // multi-claim
   const maxWinners = Number(task.maxWinners);
@@ -149,6 +153,11 @@ export function TaskCard({ item, onChange }: { item: TaskWithSubs; onChange: () 
             </span>
           )}
           {challenge && <span className="text-[12.5px] text-muted">{challenge}</span>}
+          {verified && !knownVerifier && (
+            <span className="hazard-soft px-1.5 py-0.5 font-mono text-[10.5px] font-medium uppercase tracking-wide2 text-ground" title="This bounty uses a verifier that isn't one of BountyAgent's tested templates. Read its code before working on it.">
+              Unknown verifier
+            </span>
+          )}
 
           <span className="ml-auto flex items-center gap-3">
             <span className="flex items-baseline gap-1.5">
