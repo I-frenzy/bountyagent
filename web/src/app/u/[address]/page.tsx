@@ -5,13 +5,14 @@ import Link from "next/link";
 import { isAddress } from "viem";
 import { Header } from "@/components/Header";
 import { ProfileCard } from "@/components/ProfileCard";
+import { WinRow } from "@/components/WinRow";
 import { useWallet } from "@/lib/wallet";
 import { useNetwork } from "@/lib/network";
 import { useTasks } from "@/lib/useTasks";
 import { useProfile } from "@/lib/useProfile";
 import { reputationAbi } from "@/lib/erc8004Abi";
 import { MODE } from "@/lib/bountyAbi";
-import { fmtAmount, parseSpec, timeAgo } from "@/lib/format";
+import { fmtAmount } from "@/lib/format";
 
 type Rep = { count: bigint; avg: bigint } | null;
 
@@ -95,22 +96,12 @@ export default function PublicProfile({ params }: { params: { address: string } 
 
             {/* wins */}
             <div className="flex flex-col gap-2">
-              <span className={kicker}>Wins</span>
+              <span className={kicker}>Wins · click one to see the work</span>
               {history.wins.length === 0 ? (
                 <div className="border border-dashed border-edge p-5 text-[14px] text-muted">No wins yet.</div>
               ) : (
-                history.wins.map(({ t, share }) => (
-                  <div key={t.id.toString()} className="flex flex-wrap items-center gap-x-4 gap-y-1 border border-rule px-4 py-3">
-                    <span className="font-mono text-xs text-muted">#{String(t.id).padStart(3, "0")}</span>
-                    {t.task.mode === MODE.Verified ? (
-                      <span className="stamp">Verified</span>
-                    ) : (
-                      <span className="stamp-outline">Poster decides</span>
-                    )}
-                    <span className="min-w-0 flex-1 truncate text-[14px] text-sub">{parseSpec(t.task.spec).body}</span>
-                    <span className="tnum text-verdict">{fmtAmount(share)} USDC</span>
-                    <span className="font-mono text-[11.5px] text-muted">{timeAgo(t.task.createdAt)}</span>
-                  </div>
+                history.wins.map(({ t }) => (
+                  <WinRow key={t.id.toString()} item={t} address={address} you={me === address.toLowerCase()} />
                 ))
               )}
             </div>

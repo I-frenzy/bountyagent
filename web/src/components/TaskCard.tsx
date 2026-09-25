@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useWallet } from "@/lib/wallet";
 import { useNetwork } from "@/lib/network";
@@ -217,6 +218,9 @@ export function TaskCard({ item, onChange }: { item: TaskWithSubs; onChange: () 
             {expired && (
               <span className="hazard-soft px-1.5 py-0.5 font-medium uppercase tracking-wide2 text-ground">Expired</span>
             )}
+            <Link href={`/task/${id}`} className="ml-auto text-ink no-underline hover:text-verdict">
+              RECEIPT →
+            </Link>
           </div>
 
           {/* curated — how it works, in plain words */}

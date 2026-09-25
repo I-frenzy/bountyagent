@@ -79,3 +79,33 @@ export function challengeLabel(spec: string): string | null {
   if (s.includes("solver:preimage")) return "Preimage";
   return null;
 }
+
+/** A transaction fee in USDC — tiny on Arc, so show enough digits: "$0.0042". */
+export function fmtFee(wei: bigint): string {
+  const n = Number(formatEther(wei));
+  if (n === 0) return "$0";
+  if (n < 0.0001) return "<$0.0001";
+  return `$${n < 1 ? n.toFixed(4) : n.toFixed(2)}`;
+}
+
+/** Seconds as "42s", "3m 10s", "2h 5m", "3d 4h". */
+export function fmtDuration(seconds: bigint | number): string {
+  const s = Math.max(0, Math.floor(Number(seconds)));
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ${s % 60}s`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ${m % 60}m`;
+  return `${Math.floor(h / 24)}d ${h % 24}h`;
+}
+
+/** Absolute date-time for receipts, e.g. "Sep 25, 14:02:17". */
+export function fmtDateTime(unixSeconds: bigint | number): string {
+  return new Date(Number(unixSeconds) * 1000).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
