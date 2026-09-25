@@ -505,7 +505,7 @@ self-audit (`docs/AUDIT.md`); the mainnet site crash fixed in code (`0da2f3d`,
    the repo. From `web/`: `vercel login`, then `vercel --prod`. Then connect the
    repo (Vercel → Settings → Git) so pushes deploy on their own. Optionally
    delete or retype the BOM-prefixed `NEXT_PUBLIC_*_MAINNET` vars; they're no
-   longer needed. Tracked as a GitHub issue.
+   longer needed. Tracked in GitHub issue #1.
 2. Key hygiene (`docs/AUDIT.md` F-1): treat the key pasted in chat as
    compromised; keep only trivial gas on `0xDFE783…`.
 3. Verify the contracts on `explorer.arc.io` by hand in a browser (the API is
