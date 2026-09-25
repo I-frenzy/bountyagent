@@ -243,8 +243,8 @@ contract BountyEngine {
         t.winner = winner;
         t.settledBlock = uint64(block.number);
 
-        _pay(winner, t.reward);
         emit TaskCompleted(taskId, winner, t.reward, Mode.Curated);
+        _pay(winner, t.reward);
     }
 
     // =======================================================================
@@ -290,13 +290,11 @@ contract BountyEngine {
 
         // Verifier is STATICCALLed (view) — it cannot reenter or mutate state.
         // A broken/reverting verifier is treated as "not valid", never a brick.
-        bool ok;
+        bool ok = false;
         try IBountyVerifier(t.verifier).verify(t.taskData, answer, msg.sender, commitBlockOf[taskId][msg.sender])
         returns (bool r) {
             ok = r;
-        } catch {
-            ok = false;
-        }
+        } catch {}
         if (!ok) revert InvalidAnswer();
 
         t.status = Status.Completed;
@@ -304,8 +302,8 @@ contract BountyEngine {
         t.settledBlock = uint64(block.number);
 
         emit AnswerRevealed(taskId, msg.sender, answer);
-        _pay(msg.sender, t.reward);
         emit TaskCompleted(taskId, msg.sender, t.reward, Mode.Verified);
+        _pay(msg.sender, t.reward);
     }
 
     // =======================================================================
@@ -324,8 +322,8 @@ contract BountyEngine {
 
         t.status = Status.Cancelled;
         t.settledBlock = uint64(block.number);
-        _pay(t.creator, t.reward);
         emit TaskRefunded(taskId, t.reward, false);
+        _pay(t.creator, t.reward);
     }
 
     /**
@@ -346,8 +344,8 @@ contract BountyEngine {
 
         t.status = Status.Cancelled;
         t.settledBlock = uint64(block.number);
-        _pay(t.creator, t.reward);
         emit TaskRefunded(taskId, t.reward, true);
+        _pay(t.creator, t.reward);
     }
 
     // =======================================================================

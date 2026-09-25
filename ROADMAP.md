@@ -81,8 +81,10 @@ mainnet.
   provider can bump the budget until funding → UI must approve exactly the
   budget. No grace after expiry → providers must settle before `expiredAt`.
 - 95 tests total. `script/Deploy.s.sol` deploys the whole stack (simulated OK).
-- ⏳ Next: static analysis (Slither/Aderyn) + coverage review of all
-  contracts, including forge-lint's warnings; then testnet rehearsal.
+- ✅ Security pass: CI (tests, coverage, Slither, Aderyn) on every push; every
+  High/Medium finding triaged in SECURITY.md (one real fix: events before
+  payouts). Coverage: evaluator 100%, TestVector 100%, engine 97% branches.
+- ⏳ Next: testnet rehearsal of the full stack, then F2 (ERC-8004).
 - Finding (2026-09-25): the current board draws **40× HTTP 429** from the
   public Arc RPC on one page load → the Multicall data layer (§6) is required,
   not optional.
