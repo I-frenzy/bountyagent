@@ -8,9 +8,13 @@
     "start": "node agent-worker.js",
     "once": "node agent-worker.js --once",
     "tick": "node tick.js",
-    "rehearsal": "node rehearsal.js"
+    "rehearsal": "node rehearsal.js",
+    "mcp": "node mcp.js"
   },
   "dependencies": {
     "viem": "^2.21.19"
+  },
+  "bin": {
+    "bountyagent-mcp": "mcp.js"
   }
 }
