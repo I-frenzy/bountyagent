@@ -72,7 +72,7 @@ contract ReentrantAgent {
     }
 
     function postOwn(uint64 deadline) external payable {
-        ownTask = engine.createTask{value: msg.value}("own", address(0), deadline);
+        ownTask = engine.createTask{value: msg.value}("own", address(0), deadline, 1);
     }
 
     function commit(uint256 id, bytes32 c) external {

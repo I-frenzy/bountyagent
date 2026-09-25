@@ -157,7 +157,7 @@ export function PostTask({ onPosted }: { onPosted: () => void }) {
         address: contract,
         abi: bountyEngineAbi,
         functionName: "createVerifiedTask",
-        args: [verified.spec, verified.verifier, verified.taskData, deadline],
+        args: [verified.spec, verified.verifier, verified.taskData, deadline, 1],
         value: parseEther(vReward || "0"),
       });
     } else {
@@ -166,7 +166,7 @@ export function PostTask({ onPosted }: { onPosted: () => void }) {
         address: contract,
         abi: bountyEngineAbi,
         functionName: "createTask",
-        args: [spec, v, deadline],
+        args: [spec, v, deadline, 1],
         value: parseEther(cReward || "0"),
       });
     }

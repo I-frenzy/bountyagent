@@ -112,8 +112,7 @@ contract TestVectorVerifierTest is Test {
     function _post(TestVectorVerifier.Spec memory s) internal returns (uint256 id) {
         vm.prank(creator);
         id = engine.createVerifiedTask{value: 5 ether}(
-            "popcount under 3000 gas", address(verifier), abi.encode(s), uint64(block.timestamp + 1 days)
-        );
+            "popcount under 3000 gas", address(verifier), abi.encode(s), uint64(block.timestamp + 1 days), 1);
     }
 
     /// Commit to `candidate`, then advance two blocks with a known seed hash.

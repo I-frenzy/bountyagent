@@ -42,7 +42,7 @@ USDC is Arc's **native gas asset** with sub-second finality:
 
 | Layer | Path | Role |
 |-------|------|------|
-| **Engine** | `src/BountyEngine.sol` | Dual-mode escrow + ledger. Verified (commit-reveal + verifier auto-settle) and Curated (validator) flows. `owner()` identity-only for Tally provenance. **95 Foundry tests** (unit, attack, fuzz, invariant). |
+| **Engine** | `src/BountyEngine.sol` | Dual-mode escrow + ledger. Verified (commit-reveal + verifier auto-settle) and Curated (validator) flows. `owner()` identity-only for Tally provenance. **124 Foundry tests** (unit, attack, fuzz, invariant). |
 | **Verifiers** | `src/verifiers/*`, `src/IBountyVerifier.sol` | Pluggable on-chain predicates, STATICCALLed so they can't reenter: `TestVectorVerifier` (deploy code that matches a reference implementation on fixed + fresh random inputs within a gas/size budget; e.g. `src/demo/PopcountReference.sol`), plus demo `PreimageVerifier` and `BackdoorVerifier` (+ `src/demo/VulnerableTarget.sol`). |
 | **ERC-8183 evaluator** | `src/erc8183/VerifierEvaluator.sol` | Makes any BountyAgent verifier the *evaluator* of an ERC-8183 job: the job completes, and the provider is paid, exactly when the verifier accepts. Ships with the ERC's reference `AgenticCommerce` (vendored, CC0) deployed admin-less for Arc mainnet. |
 | **Agent worker** | `worker/agent-worker.js` | Watches Arc; solves verified tasks (preimage/backdoor), runs commit→reveal to auto-earn; does curated work via Gemini/heuristic. |
@@ -51,7 +51,7 @@ USDC is Arc's **native gas asset** with sub-second finality:
 ## Verified flow (commit-reveal, front-run-proof)
 
 ```
-createVerifiedTask(spec, verifier, taskData, deadline)   // creator locks USDC
+createVerifiedTask(spec, verifier, taskData, deadline, maxWinners)   // creator locks USDC
   → agent solves off-chain
   → commitAnswer(taskId, keccak256(abi.encode(answer, salt, agent)))   // hidden
   → (wait one block)                                                   // anti-front-run
@@ -64,8 +64,9 @@ address, and can't commit + reveal in the same block — so they can't steal it.
 
 ## Contract surface
 
-- `createTask(spec, validator, resolveDeadline)` / `createVerifiedTask(spec, verifier, taskData, resolveDeadline)` — post + escrow.
-- `submitResult` / `completeTask(taskId, winner)` — curated submit + validator payout.
+- `createTask(spec, validator, resolveDeadline, maxWinners)` / `createVerifiedTask(spec, verifier, taskData, resolveDeadline, maxWinners)` — post + escrow. `maxWinners` (1–50) splits the bounty into equal shares.
+- `submitResult` / `completeTask(taskId, winner)` — curated submit (by an agent or a person) + validator pays one share per winner; `finalizeTask` ends a multi-claim bounty early and refunds unpaid shares.
+- Multi-claim, verified: the first `maxWinners` valid reveals are paid; only commits from blocks before the first payout count, so revealed answers can't be copied.
 - `commitAnswer` / `revealAndClaim` — verified commit-reveal auto-settle.
 - `cancelTask` — creator refund before any agent engages.
 - `reclaimExpired` — post-deadline anti-lockup refund (verified mode waits a 15-min reveal grace, so it can't rug a solver who committed in time).
@@ -76,7 +77,7 @@ address, and can't commit + reveal in the same block — so they can't steal it.
 ## Quickstart
 
 ```bash
-forge test                                           # 95 passing
+forge test                                           # 124 passing
 cp .env.example .env                                 # PRIVATE_KEY (a little Arc USDC)
 forge script script/Deploy.s.sol:Deploy --rpc-url arc_testnet --broadcast --private-key $PRIVATE_KEY
 ```

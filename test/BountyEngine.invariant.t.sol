@@ -51,24 +51,27 @@ contract Handler is Test {
 
     // --- actions ----------------------------------------------------------
 
-    function createCurated(uint256 actorSeed, uint256 reward, uint256 duration) external {
+    function createCurated(uint256 actorSeed, uint256 share, uint256 duration, uint256 winnersSeed) external {
         address a = _actor(actorSeed);
-        reward = bound(reward, 1, engine.MAX_REWARD());
+        uint16 winners = uint16(bound(winnersSeed, 1, 4));
+        uint256 reward = bound(share, 1, engine.MAX_REWARD() / winners) * winners;
         duration = bound(duration, engine.MIN_DURATION(), engine.MAX_DURATION());
         vm.prank(a);
-        engine.createTask{value: reward}("spec", address(0), uint64(block.timestamp + duration));
+        engine.createTask{value: reward}("spec", address(0), uint64(block.timestamp + duration), winners);
         ghostDeposited += reward;
     }
 
-    function createVerified(uint256 actorSeed, uint256 reward, uint256 duration, bytes32 secretSeed) external {
+    function createVerified(uint256 actorSeed, uint256 share, uint256 duration, bytes32 secretSeed, uint256 winnersSeed)
+        external
+    {
         address a = _actor(actorSeed);
-        reward = bound(reward, 1, engine.MAX_REWARD());
+        uint16 winners = uint16(bound(winnersSeed, 1, 4));
+        uint256 reward = bound(share, 1, engine.MAX_REWARD() / winners) * winners;
         duration = bound(duration, engine.MIN_DURATION(), engine.MAX_DURATION());
         bytes memory secret = abi.encode(secretSeed);
         vm.prank(a);
         uint256 id = engine.createVerifiedTask{value: reward}(
-            "spec", address(preimage), abi.encode(keccak256(secret)), uint64(block.timestamp + duration)
-        );
+            "spec", address(preimage), abi.encode(keccak256(secret)), uint64(block.timestamp + duration), winners);
         secretOf[id] = secret;
         ghostDeposited += reward;
     }
@@ -108,6 +111,15 @@ contract Handler is Test {
         uint256 bal = address(engine).balance;
         vm.prank(a);
         try engine.revealAndClaim(id, answer, _salt(id, a)) {} catch {}
+        _track(id, bal);
+    }
+
+    function finalize(uint256 taskSeed) external {
+        uint256 id = _task(taskSeed);
+        if (id == 0) return;
+        uint256 bal = address(engine).balance;
+        vm.prank(engine.getTask(id).validator);
+        try engine.finalizeTask(id) {} catch {}
         _track(id, bal);
     }
 
@@ -156,12 +168,16 @@ contract BountyEngineInvariantTest is Test {
         console2.log("paid out (wei)", handler.ghostPaidOut());
     }
 
-    /// The engine holds exactly the rewards of Open tasks — no more, no less.
+    /// The engine holds exactly the unpaid shares of Open tasks — no more, no less.
     function invariant_BalanceEqualsOpenEscrow() public view {
         uint256 open;
         for (uint256 id = 1; id <= engine.taskCount(); id++) {
             BountyEngine.Task memory t = engine.getTask(id);
-            if (t.status == BountyEngine.Status.Open) open += t.reward;
+            if (t.status == BountyEngine.Status.Open) {
+                uint256 left = t.reward - (t.reward / t.maxWinners) * t.paidCount;
+                assertEq(engine.remainingEscrow(id), left);
+                open += left;
+            }
         }
         assertEq(address(engine).balance, open);
     }
@@ -171,28 +187,37 @@ contract BountyEngineInvariantTest is Test {
         assertEq(handler.ghostDeposited(), address(engine).balance + handler.ghostPaidOut());
     }
 
-    /// No task ever pays out twice, and settled tasks paid out exactly once.
-    function invariant_AtMostOnePayoutPerTask() public view {
+    /// Payouts per task are exactly: one per paid winner, plus one refund if the
+    /// task closed with unpaid shares. Never more winners than `maxWinners`,
+    /// never the same winner twice.
+    function invariant_PayoutsMatchWinners() public view {
         for (uint256 id = 1; id <= engine.taskCount(); id++) {
             BountyEngine.Task memory t = engine.getTask(id);
-            uint256 n = handler.payoutsPerTask(id);
-            assertLe(n, 1);
-            if (t.status == BountyEngine.Status.Open) {
-                assertEq(n, 0);
-                assertEq(t.settledBlock, 0);
-            } else {
-                assertEq(n, 1);
-                assertGt(t.settledBlock, 0);
+            address[] memory w = engine.getWinners(id);
+            assertEq(w.length, t.paidCount);
+            assertLe(t.paidCount, t.maxWinners);
+            for (uint256 i = 0; i < w.length; i++) {
+                for (uint256 j = i + 1; j < w.length; j++) {
+                    assertTrue(w[i] != w[j], "duplicate winner");
+                }
             }
+            bool closed = t.status != BountyEngine.Status.Open;
+            bool refunded = closed && t.paidCount < t.maxWinners;
+            assertEq(handler.payoutsPerTask(id), uint256(t.paidCount) + (refunded ? 1 : 0));
+            assertEq(t.settledBlock == 0, !closed);
+            if (t.status == BountyEngine.Status.Cancelled) assertEq(t.paidCount, 0);
+            if (t.status == BountyEngine.Status.Completed) assertGt(t.paidCount, 0);
+            if (t.paidCount == t.maxWinners) assertEq(uint256(t.status), uint256(BountyEngine.Status.Completed));
         }
     }
 
-    /// Completed verified tasks always have a winner who is not the creator.
-    function invariant_VerifiedWinnerIsNotCreator() public view {
+    /// The first winner is recorded, and verified winners are never the creator.
+    function invariant_WinnersAreValid() public view {
         for (uint256 id = 1; id <= engine.taskCount(); id++) {
             BountyEngine.Task memory t = engine.getTask(id);
-            if (t.status == BountyEngine.Status.Completed) {
-                assertTrue(t.winner != address(0));
+            if (t.paidCount > 0) {
+                assertEq(t.winner, engine.getWinners(id)[0]);
+                assertGt(t.firstPaidBlock, 0);
                 if (t.mode == BountyEngine.Mode.Verified) assertTrue(t.winner != t.creator);
             }
         }

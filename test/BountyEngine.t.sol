@@ -54,19 +54,18 @@ contract BountyEngineTest is Test {
 
     function _postCurated() internal returns (uint256 id) {
         vm.prank(creator);
-        id = engine.createTask{value: 1 ether}("audit this contract", validator, _dl());
+        id = engine.createTask{value: 1 ether}("audit this contract", validator, _dl(), 1);
     }
 
     function _postPreimage(bytes memory secret) internal returns (uint256 id) {
         vm.prank(creator);
         id = engine.createVerifiedTask{value: 1 ether}(
-            "find the preimage", address(preimage), abi.encode(keccak256(secret)), _dl()
-        );
+            "find the preimage", address(preimage), abi.encode(keccak256(secret)), _dl(), 1);
     }
 
     function _postVerified(address verifier, bytes memory taskData) internal returns (uint256 id) {
         vm.prank(creator);
-        id = engine.createVerifiedTask{value: 1 ether}("spec", verifier, taskData, _dl());
+        id = engine.createVerifiedTask{value: 1 ether}("spec", verifier, taskData, _dl(), 1);
     }
 
     function _commitAndRoll(uint256 id, address who, bytes memory answer, bytes32 salt) internal {
@@ -98,7 +97,7 @@ contract BountyEngineTest is Test {
 
     function test_CuratedDefaultsValidatorToCreator() public {
         vm.prank(creator);
-        uint256 id = engine.createTask{value: 1 ether}("spec", address(0), _dl());
+        uint256 id = engine.createTask{value: 1 ether}("spec", address(0), _dl(), 1);
         assertEq(engine.getTask(id).validator, creator);
     }
 
@@ -229,9 +228,9 @@ contract BountyEngineTest is Test {
     function test_VerifiedRejectsMissingOrNonContractVerifier() public {
         vm.startPrank(creator);
         vm.expectRevert(BountyEngine.NoVerifier.selector);
-        engine.createVerifiedTask{value: 1 ether}("x", address(0), "", _dl());
+        engine.createVerifiedTask{value: 1 ether}("x", address(0), "", _dl(), 1);
         vm.expectRevert(BountyEngine.VerifierNotContract.selector);
-        engine.createVerifiedTask{value: 1 ether}("x", address(0xdead), "", _dl());
+        engine.createVerifiedTask{value: 1 ether}("x", address(0xdead), "", _dl(), 1);
         vm.stopPrank();
     }
 
@@ -432,8 +431,7 @@ contract BountyEngineTest is Test {
         bytes memory taskData = abi.encode(address(target), uint256(1_000_000));
         vm.prank(creator);
         id = engine.createVerifiedTask{value: 2 ether}(
-            "find a small input that passes VulnerableTarget.check()", address(backdoor), taskData, _dl()
-        );
+            "find a small input that passes VulnerableTarget.check()", address(backdoor), taskData, _dl(), 1);
     }
 
     function test_BackdoorSolvePaysAgent() public {
@@ -492,9 +490,9 @@ contract BountyEngineTest is Test {
     function test_CreateWithoutDeadlineReverts() public {
         vm.startPrank(creator);
         vm.expectRevert(BountyEngine.DeadlineTooSoon.selector);
-        engine.createTask{value: 1 ether}("spec", validator, 0);
+        engine.createTask{value: 1 ether}("spec", validator, 0, 1);
         vm.expectRevert(BountyEngine.DeadlineTooSoon.selector);
-        engine.createVerifiedTask{value: 1 ether}("spec", address(preimage), abi.encode(bytes32(0)), 0);
+        engine.createVerifiedTask{value: 1 ether}("spec", address(preimage), abi.encode(bytes32(0)), 0, 1);
         vm.stopPrank();
     }
 
@@ -502,22 +500,22 @@ contract BountyEngineTest is Test {
         uint64 deadline = uint64(block.timestamp + engine.MIN_DURATION() - 1);
         vm.prank(creator);
         vm.expectRevert(BountyEngine.DeadlineTooSoon.selector);
-        engine.createTask{value: 1 ether}("spec", validator, deadline);
+        engine.createTask{value: 1 ether}("spec", validator, deadline, 1);
     }
 
     function test_CreateDeadlineTooFarReverts() public {
         uint64 deadline = uint64(block.timestamp + engine.MAX_DURATION() + 1);
         vm.prank(creator);
         vm.expectRevert(BountyEngine.DeadlineTooFar.selector);
-        engine.createTask{value: 1 ether}("spec", validator, deadline);
+        engine.createTask{value: 1 ether}("spec", validator, deadline, 1);
     }
 
     function test_CreateDeadlineBoundsInclusive() public {
         uint64 lo = uint64(block.timestamp + engine.MIN_DURATION());
         uint64 hi = uint64(block.timestamp + engine.MAX_DURATION());
         vm.startPrank(creator);
-        engine.createTask{value: 1 ether}("spec", validator, lo);
-        engine.createTask{value: 1 ether}("spec", validator, hi);
+        engine.createTask{value: 1 ether}("spec", validator, lo, 1);
+        engine.createTask{value: 1 ether}("spec", validator, hi, 1);
         vm.stopPrank();
         assertEq(engine.taskCount(), 2);
     }
@@ -525,18 +523,18 @@ contract BountyEngineTest is Test {
     function test_CreateRequiresBountyAndSpec() public {
         vm.startPrank(creator);
         vm.expectRevert(BountyEngine.NoBounty.selector);
-        engine.createTask("spec", validator, _dl());
+        engine.createTask("spec", validator, _dl(), 1);
         vm.expectRevert(BountyEngine.EmptySpec.selector);
-        engine.createTask{value: 1 ether}("", validator, _dl());
+        engine.createTask{value: 1 ether}("", validator, _dl(), 1);
         vm.stopPrank();
     }
 
     function test_RewardCap() public {
         uint256 max = engine.MAX_REWARD();
         vm.startPrank(creator);
-        engine.createTask{value: max}("spec", validator, _dl());
+        engine.createTask{value: max}("spec", validator, _dl(), 1);
         vm.expectRevert(BountyEngine.RewardTooHigh.selector);
-        engine.createTask{value: max + 1}("spec", validator, _dl());
+        engine.createTask{value: max + 1}("spec", validator, _dl(), 1);
         vm.stopPrank();
     }
 
@@ -834,6 +832,6 @@ contract BountyEngineTest is Test {
             && offset <= engine.MAX_DURATION();
         vm.prank(creator);
         if (!valid) vm.expectRevert();
-        engine.createTask{value: reward}("spec", validator, deadline);
+        engine.createTask{value: reward}("spec", validator, deadline, 1);
     }
 }

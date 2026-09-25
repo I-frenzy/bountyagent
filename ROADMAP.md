@@ -84,7 +84,12 @@ mainnet.
 - ✅ Security pass: CI (tests, coverage, Slither, Aderyn) on every push; every
   High/Medium finding triaged in SECURITY.md (one real fix: events before
   payouts). Coverage: evaluator 100%, TestVector 100%, engine 97% branches.
-- ⏳ Next: F7 multi-claim (contract), then testnet rehearsal, then F8 + F2.
+- ✅ F7 multi-claim in the engine: equal shares, one win per address,
+  `finalizeTask`, remainder refunds; verified anti-copy rule (commit block must
+  precede the first payout) — mutation-tested: removing it lets a copier win.
+  15 new tests + invariants rewritten for multi-winner. 124 tests. UI still
+  posts single-winner bounties; multi-winner controls come with F8.
+- ⏳ Next: testnet rehearsal (contracts are now frozen), then F8 + F2.
 - Finding (2026-09-25): the current board draws **40× HTTP 429** from the
   public Arc RPC on one page load → the Multicall data layer (§6) is required,
   not optional.

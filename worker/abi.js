@@ -46,6 +46,19 @@ export const BOUNTY_ENGINE_ABI = [
   },
   {
     "type": "function",
+    "name": "MAX_WINNERS",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint16",
+        "internalType": "uint16"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "MIN_DURATION",
     "inputs": [],
     "outputs": [
@@ -233,6 +246,11 @@ export const BOUNTY_ENGINE_ABI = [
         "name": "resolveDeadline",
         "type": "uint64",
         "internalType": "uint64"
+      },
+      {
+        "name": "maxWinners",
+        "type": "uint16",
+        "internalType": "uint16"
       }
     ],
     "outputs": [
@@ -267,6 +285,11 @@ export const BOUNTY_ENGINE_ABI = [
         "name": "resolveDeadline",
         "type": "uint64",
         "internalType": "uint64"
+      },
+      {
+        "name": "maxWinners",
+        "type": "uint16",
+        "internalType": "uint16"
       }
     ],
     "outputs": [
@@ -277,6 +300,19 @@ export const BOUNTY_ENGINE_ABI = [
       }
     ],
     "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "finalizeTask",
+    "inputs": [
+      {
+        "name": "taskId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -381,6 +417,21 @@ export const BOUNTY_ENGINE_ABI = [
             "internalType": "enum BountyEngine.Status"
           },
           {
+            "name": "maxWinners",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "paidCount",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "firstPaidBlock",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
             "name": "reward",
             "type": "uint256",
             "internalType": "uint256"
@@ -402,6 +453,25 @@ export const BOUNTY_ENGINE_ABI = [
   },
   {
     "type": "function",
+    "name": "getWinners",
+    "inputs": [
+      {
+        "name": "taskId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address[]",
+        "internalType": "address[]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "hasSubmitted",
     "inputs": [
       {
@@ -411,6 +481,30 @@ export const BOUNTY_ENGINE_ABI = [
       },
       {
         "name": "agent",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "hasWon",
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "",
         "type": "address",
         "internalType": "address"
       }
@@ -449,6 +543,25 @@ export const BOUNTY_ENGINE_ABI = [
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "remainingEscrow",
+    "inputs": [
+      {
+        "name": "taskId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -606,7 +719,7 @@ export const BOUNTY_ENGINE_ABI = [
   },
   {
     "type": "event",
-    "name": "TaskCompleted",
+    "name": "TaskClosed",
     "inputs": [
       {
         "name": "taskId",
@@ -615,22 +728,22 @@ export const BOUNTY_ENGINE_ABI = [
         "internalType": "uint256"
       },
       {
-        "name": "winner",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
+        "name": "status",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "enum BountyEngine.Status"
       },
       {
-        "name": "reward",
+        "name": "winners",
+        "type": "uint16",
+        "indexed": false,
+        "internalType": "uint16"
+      },
+      {
+        "name": "refunded",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
-      },
-      {
-        "name": "mode",
-        "type": "uint8",
-        "indexed": false,
-        "internalType": "enum BountyEngine.Mode"
       }
     ],
     "anonymous": false
@@ -676,6 +789,12 @@ export const BOUNTY_ENGINE_ABI = [
         "internalType": "uint64"
       },
       {
+        "name": "maxWinners",
+        "type": "uint16",
+        "indexed": false,
+        "internalType": "uint16"
+      },
+      {
         "name": "spec",
         "type": "string",
         "indexed": false,
@@ -686,7 +805,7 @@ export const BOUNTY_ENGINE_ABI = [
   },
   {
     "type": "event",
-    "name": "TaskRefunded",
+    "name": "WinnerPaid",
     "inputs": [
       {
         "name": "taskId",
@@ -695,16 +814,22 @@ export const BOUNTY_ENGINE_ABI = [
         "internalType": "uint256"
       },
       {
+        "name": "winner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
         "name": "amount",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
       },
       {
-        "name": "expired",
-        "type": "bool",
+        "name": "mode",
+        "type": "uint8",
         "indexed": false,
-        "internalType": "bool"
+        "internalType": "enum BountyEngine.Mode"
       }
     ],
     "anonymous": false
@@ -716,7 +841,22 @@ export const BOUNTY_ENGINE_ABI = [
   },
   {
     "type": "error",
+    "name": "AlreadyWon",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "BadReveal",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "BadWinnerCount",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CommitsClosed",
     "inputs": []
   },
   {
@@ -806,6 +946,11 @@ export const BOUNTY_ENGINE_ABI = [
   },
   {
     "type": "error",
+    "name": "NothingPaidYet",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "Reentrant",
     "inputs": []
   },
@@ -837,6 +982,11 @@ export const BOUNTY_ENGINE_ABI = [
   {
     "type": "error",
     "name": "TransferFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "UnevenShares",
     "inputs": []
   },
   {

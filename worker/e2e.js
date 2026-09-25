@@ -83,7 +83,7 @@ async function main() {
     address: CONTRACT,
     abi: BOUNTY_ENGINE_ABI,
     functionName: "createTask",
-    args: [spec, "0x0000000000000000000000000000000000000000", BigInt(Math.floor(Date.now() / 1000) + 3600)],
+    args: [spec, "0x0000000000000000000000000000000000000000", BigInt(Math.floor(Date.now() / 1000) + 3600), 1],
     value: parseEther(REWARD),
   });
   await pub.waitForTransactionReceipt({ hash });
