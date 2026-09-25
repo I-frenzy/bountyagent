@@ -28,6 +28,18 @@ export function timeAgo(unixSeconds: bigint | number): string {
   return `${d}d ago`;
 }
 
+/** Time until a future unix timestamp, e.g. "in 3h". */
+export function timeUntil(unixSeconds: bigint | number): string {
+  const s = Math.floor((Number(unixSeconds) * 1000 - Date.now()) / 1000);
+  if (s <= 0) return "now";
+  if (s < 60) return `in ${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `in ${m}m`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `in ${h}h`;
+  return `in ${Math.floor(h / 24)}d`;
+}
+
 export function isZero(addr: string): boolean {
   return /^0x0+$/.test(addr);
 }

@@ -30,8 +30,15 @@ contract BountyEngineTest is Test {
         vm.deal(attacker, 1 ether);
     }
 
+    uint64 constant DURATION = 1 days;
+
     function _commitment(bytes memory answer, bytes32 salt, address solver) internal pure returns (bytes32) {
         return keccak256(abi.encode(answer, salt, solver));
+    }
+
+    /// A valid default deadline, one day out.
+    function _dl() internal view returns (uint64) {
+        return uint64(block.timestamp + DURATION);
     }
 
     // =====================================================================
@@ -48,7 +55,7 @@ contract BountyEngineTest is Test {
     }
 
     function test_CuratedCreateLocksEscrow() public {
-        uint256 id = _postCurated(0);
+        uint256 id = _postCurated(_dl());
         assertEq(address(engine).balance, 1 ether);
         BountyEngine.Task memory t = engine.getTask(id);
         assertEq(t.creator, creator);
@@ -60,12 +67,12 @@ contract BountyEngineTest is Test {
 
     function test_CuratedDefaultsValidatorToCreator() public {
         vm.prank(creator);
-        uint256 id = engine.createTask{value: 1 ether}("spec", address(0), 0);
+        uint256 id = engine.createTask{value: 1 ether}("spec", address(0), _dl());
         assertEq(engine.getTask(id).validator, creator);
     }
 
     function test_CuratedCompletePaysWinner() public {
-        uint256 id = _postCurated(0);
+        uint256 id = _postCurated(_dl());
         vm.prank(agentA);
         engine.submitResult(id, "result-a");
         vm.prank(agentB);
@@ -81,7 +88,7 @@ contract BountyEngineTest is Test {
     }
 
     function test_CuratedOnlyValidatorCompletes() public {
-        uint256 id = _postCurated(0);
+        uint256 id = _postCurated(_dl());
         vm.prank(agentA);
         engine.submitResult(id, "a");
         vm.prank(creator);
@@ -90,14 +97,14 @@ contract BountyEngineTest is Test {
     }
 
     function test_CuratedCreatorCannotSubmit() public {
-        uint256 id = _postCurated(0);
+        uint256 id = _postCurated(_dl());
         vm.prank(creator);
         vm.expectRevert("self-submit");
         engine.submitResult(id, "x");
     }
 
     function test_CuratedCancelNoSubmissions() public {
-        uint256 id = _postCurated(0);
+        uint256 id = _postCurated(_dl());
         uint256 before = creator.balance;
         vm.prank(creator);
         engine.cancelTask(id);
@@ -105,7 +112,7 @@ contract BountyEngineTest is Test {
     }
 
     function test_CuratedCannotCancelAfterSubmission() public {
-        uint256 id = _postCurated(0);
+        uint256 id = _postCurated(_dl());
         vm.prank(agentA);
         engine.submitResult(id, "a");
         vm.prank(creator);
@@ -115,14 +122,14 @@ contract BountyEngineTest is Test {
 
     // H-1 fix: absent validator can't lock funds forever.
     function test_CuratedReclaimExpiredWithSubmissions() public {
-        uint256 id = _postCurated(uint64(block.timestamp + 100));
+        uint256 id = _postCurated(_dl());
         vm.prank(agentA);
         engine.submitResult(id, "a"); // engaged -> cancel now blocked
         vm.prank(creator);
         vm.expectRevert("already engaged");
         engine.cancelTask(id);
 
-        vm.warp(block.timestamp + 101); // past deadline
+        vm.warp(block.timestamp + DURATION + 1); // past deadline
         uint256 before = creator.balance;
         vm.prank(creator);
         engine.reclaimExpired(id);
@@ -131,7 +138,7 @@ contract BountyEngineTest is Test {
     }
 
     function test_ReclaimBeforeDeadlineReverts() public {
-        uint256 id = _postCurated(uint64(block.timestamp + 100));
+        uint256 id = _postCurated(_dl());
         vm.prank(creator);
         vm.expectRevert("not expired");
         engine.reclaimExpired(id);
@@ -150,7 +157,7 @@ contract BountyEngineTest is Test {
     }
 
     function test_VerifiedCreate() public {
-        uint256 id = _postPreimage("secret", 0);
+        uint256 id = _postPreimage("secret", _dl());
         BountyEngine.Task memory t = engine.getTask(id);
         assertEq(uint256(t.mode), uint256(BountyEngine.Mode.Verified));
         assertEq(t.verifier, address(preimage));
@@ -160,12 +167,12 @@ contract BountyEngineTest is Test {
     function test_VerifiedRejectsNonContractVerifier() public {
         vm.prank(creator);
         vm.expectRevert("verifier not a contract");
-        engine.createVerifiedTask{value: 1 ether}("x", address(0xdead), "", 0);
+        engine.createVerifiedTask{value: 1 ether}("x", address(0xdead), "", _dl());
     }
 
     function test_VerifiedCommitRevealPaysSolver() public {
         bytes memory secret = "s3cr3t";
-        uint256 id = _postPreimage(secret, 0);
+        uint256 id = _postPreimage(secret, _dl());
         bytes32 salt = keccak256("salt-a");
 
         vm.prank(agentA);
@@ -186,7 +193,7 @@ contract BountyEngineTest is Test {
 
     function test_VerifiedRevealTooEarlyReverts() public {
         bytes memory secret = "abc";
-        uint256 id = _postPreimage(secret, 0);
+        uint256 id = _postPreimage(secret, _dl());
         bytes32 salt = keccak256("s");
         vm.startPrank(agentA);
         engine.commitAnswer(id, _commitment(secret, salt, agentA));
@@ -197,7 +204,7 @@ contract BountyEngineTest is Test {
 
     function test_VerifiedBadRevealReverts() public {
         bytes memory secret = "abc";
-        uint256 id = _postPreimage(secret, 0);
+        uint256 id = _postPreimage(secret, _dl());
         bytes32 salt = keccak256("s");
         vm.prank(agentA);
         engine.commitAnswer(id, _commitment(secret, salt, agentA));
@@ -208,7 +215,7 @@ contract BountyEngineTest is Test {
     }
 
     function test_VerifiedInvalidAnswerStaysOpen() public {
-        uint256 id = _postPreimage("right", 0);
+        uint256 id = _postPreimage("right", _dl());
         bytes memory wrong = "wrong";
         bytes32 salt = keccak256("s");
         vm.prank(agentA);
@@ -226,7 +233,7 @@ contract BountyEngineTest is Test {
     // committed cannot claim.
     function test_VerifiedFrontRunnerWithoutCommitCannotClaim() public {
         bytes memory secret = "leaked";
-        uint256 id = _postPreimage(secret, 0);
+        uint256 id = _postPreimage(secret, _dl());
         bytes32 salt = keccak256("s");
         vm.prank(agentA);
         engine.commitAnswer(id, _commitment(secret, salt, agentA));
@@ -241,7 +248,7 @@ contract BountyEngineTest is Test {
     // Attacker who commits after seeing the answer still can't reveal same block.
     function test_VerifiedFrontRunnerSameBlockCommitBlocked() public {
         bytes memory secret = "leaked2";
-        uint256 id = _postPreimage(secret, 0);
+        uint256 id = _postPreimage(secret, _dl());
         bytes32 salt = keccak256("z");
         vm.startPrank(attacker);
         engine.commitAnswer(id, _commitment(secret, salt, attacker));
@@ -251,14 +258,14 @@ contract BountyEngineTest is Test {
     }
 
     function test_VerifiedCreatorCannotSolve() public {
-        uint256 id = _postPreimage("x", 0);
+        uint256 id = _postPreimage("x", _dl());
         vm.prank(creator);
         vm.expectRevert("self-solve");
         engine.commitAnswer(id, keccak256("c"));
     }
 
     function test_VerifiedCannotCancelAfterCommit() public {
-        uint256 id = _postPreimage("x", 0);
+        uint256 id = _postPreimage("x", _dl());
         vm.prank(agentA);
         engine.commitAnswer(id, keccak256("c"));
         vm.prank(creator);
@@ -267,10 +274,10 @@ contract BountyEngineTest is Test {
     }
 
     function test_VerifiedReclaimExpiredRefundsCreator() public {
-        uint256 id = _postPreimage("x", uint64(block.timestamp + 100));
+        uint256 id = _postPreimage("x", _dl());
         vm.prank(agentA);
         engine.commitAnswer(id, keccak256("c")); // engaged but never solved
-        vm.warp(block.timestamp + 101);
+        vm.warp(block.timestamp + DURATION + engine.REVEAL_GRACE() + 1);
         uint256 before = creator.balance;
         vm.prank(creator);
         engine.reclaimExpired(id);
@@ -285,7 +292,7 @@ contract BountyEngineTest is Test {
         bytes memory taskData = abi.encode(address(target), uint256(1_000_000));
         vm.prank(creator);
         id = engine.createVerifiedTask{value: 2 ether}(
-            "find a small input that passes VulnerableTarget.check()", address(backdoor), taskData, 0
+            "find a small input that passes VulnerableTarget.check()", address(backdoor), taskData, _dl()
         );
     }
 
@@ -335,9 +342,124 @@ contract BountyEngineTest is Test {
         assertEq(engine.computeCommitment(answer, salt, agentA), _commitment(answer, salt, agentA));
     }
 
+    // =====================================================================
+    //                   DEADLINES (H-1: no permanent lockup)
+    // =====================================================================
+
+    function test_CreateWithoutDeadlineReverts() public {
+        vm.startPrank(creator);
+        vm.expectRevert("deadline too soon");
+        engine.createTask{value: 1 ether}("spec", validator, 0);
+        vm.expectRevert("deadline too soon");
+        engine.createVerifiedTask{value: 1 ether}("spec", address(preimage), abi.encode(bytes32(0)), 0);
+        vm.stopPrank();
+    }
+
+    function test_CreateDeadlineTooSoonReverts() public {
+        uint64 deadline = uint64(block.timestamp + engine.MIN_DURATION() - 1);
+        vm.prank(creator);
+        vm.expectRevert("deadline too soon");
+        engine.createTask{value: 1 ether}("spec", validator, deadline);
+    }
+
+    function test_CreateDeadlineTooFarReverts() public {
+        uint64 deadline = uint64(block.timestamp + engine.MAX_DURATION() + 1);
+        vm.prank(creator);
+        vm.expectRevert("deadline too far");
+        engine.createTask{value: 1 ether}("spec", validator, deadline);
+    }
+
+    function test_CreateDeadlineBoundsInclusive() public {
+        vm.startPrank(creator);
+        engine.createTask{value: 1 ether}("spec", validator, uint64(block.timestamp + engine.MIN_DURATION()));
+        engine.createTask{value: 1 ether}("spec", validator, uint64(block.timestamp + engine.MAX_DURATION()));
+        vm.stopPrank();
+        assertEq(engine.taskCount(), 2);
+    }
+
+    // The original H-1 attack: a stranger's junk engagement must not brick escrow.
+    function test_JunkSubmissionCannotLockCuratedForever() public {
+        uint256 id = _postCurated(_dl());
+        vm.prank(attacker);
+        engine.submitResult(id, "junk");
+        vm.warp(block.timestamp + DURATION + 1);
+        vm.prank(creator);
+        engine.reclaimExpired(id);
+        assertEq(address(engine).balance, 0);
+    }
+
+    function test_JunkCommitCannotLockVerifiedForever() public {
+        uint256 id = _postPreimage("x", _dl());
+        vm.prank(attacker);
+        engine.commitAnswer(id, keccak256("junk"));
+        vm.warp(block.timestamp + DURATION + engine.REVEAL_GRACE() + 1);
+        vm.prank(creator);
+        engine.reclaimExpired(id);
+        assertEq(address(engine).balance, 0);
+    }
+
+    function test_SubmitAfterDeadlineReverts() public {
+        uint256 id = _postCurated(_dl());
+        vm.warp(block.timestamp + DURATION + 1);
+        vm.prank(agentA);
+        vm.expectRevert("deadline passed");
+        engine.submitResult(id, "late");
+    }
+
+    function test_CommitAfterDeadlineReverts() public {
+        uint256 id = _postPreimage("x", _dl());
+        vm.warp(block.timestamp + DURATION + 1);
+        vm.prank(agentA);
+        vm.expectRevert("deadline passed");
+        engine.commitAnswer(id, keccak256("late"));
+    }
+
+    // Creator cannot race a solver who committed in time: reclaim waits out the grace.
+    function test_VerifiedReclaimBlockedDuringRevealGrace() public {
+        uint256 id = _postPreimage("x", _dl());
+        vm.prank(agentA);
+        engine.commitAnswer(id, keccak256("c"));
+        vm.warp(block.timestamp + DURATION + engine.REVEAL_GRACE()); // at the grace edge
+        vm.prank(creator);
+        vm.expectRevert("not expired");
+        engine.reclaimExpired(id);
+    }
+
+    function test_VerifiedLateCommitterCanRevealInGrace() public {
+        bytes memory secret = "last-minute";
+        uint256 id = _postPreimage(secret, _dl());
+        bytes32 salt = keccak256("s");
+
+        vm.warp(block.timestamp + DURATION); // commit at the deadline itself
+        vm.prank(agentA);
+        engine.commitAnswer(id, _commitment(secret, salt, agentA));
+
+        vm.roll(block.number + 1);
+        vm.warp(block.timestamp + engine.REVEAL_GRACE()); // deadline passed, still in grace
+
+        vm.prank(creator);
+        vm.expectRevert("not expired");
+        engine.reclaimExpired(id);
+
+        uint256 before = agentA.balance;
+        vm.prank(agentA);
+        engine.revealAndClaim(id, secret, salt);
+        assertEq(agentA.balance, before + 1 ether);
+    }
+
+    function test_CuratedValidatorCanStillPayAfterDeadline() public {
+        uint256 id = _postCurated(_dl());
+        vm.prank(agentA);
+        engine.submitResult(id, "a");
+        vm.warp(block.timestamp + DURATION + 1);
+        vm.prank(validator);
+        engine.completeTask(id, agentA); // creator hasn't reclaimed yet
+        assertEq(engine.getTask(id).winner, agentA);
+    }
+
     // balance invariant across a mixed batch
     function test_InvariantBalanceMatchesOpenEscrow() public {
-        _postCurated(0); // 1 ether open
+        _postCurated(_dl()); // 1 ether open
         _postBackdoor(); // 2 ether open
         assertEq(address(engine).balance, 3 ether);
     }

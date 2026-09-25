@@ -5,9 +5,9 @@ import { useWallet } from "@/lib/wallet";
 import { useNetwork } from "@/lib/network";
 import { useTx } from "@/lib/useTx";
 import { useToast } from "@/lib/toast";
-import { bountyEngineAbi, MODE, TASK_STATUS } from "@/lib/bountyAbi";
+import { bountyEngineAbi, MODE, REVEAL_GRACE_SECONDS, TASK_STATUS } from "@/lib/bountyAbi";
 import type { TaskWithSubs } from "@/lib/useTasks";
-import { challengeLabel, fmtAmount, shortAddr, timeAgo } from "@/lib/format";
+import { challengeLabel, fmtAmount, shortAddr, timeAgo, timeUntil } from "@/lib/format";
 
 export function TaskCard({ item, onChange }: { item: TaskWithSubs; onChange: () => void }) {
   const { address } = useWallet();
@@ -24,7 +24,13 @@ export function TaskCard({ item, onChange }: { item: TaskWithSubs; onChange: () 
   const open = status === "Open";
   const completed = status === "Completed";
   const cancelled = status === "Cancelled";
-  const expired = open && task.resolveDeadline > 0n && BigInt(Math.floor(Date.now() / 1000)) > task.resolveDeadline;
+  // Mirrors BountyEngine: submissions/commits close at the deadline; a verified
+  // creator must also wait out REVEAL_GRACE before reclaiming. Deadline 0 only
+  // exists on tasks from the pre-fix engine.
+  const now = BigInt(Math.floor(Date.now() / 1000));
+  const hasDeadline = task.resolveDeadline > 0n;
+  const expired = open && hasDeadline && now > task.resolveDeadline;
+  const reclaimable = expired && now > task.resolveDeadline + (verified ? REVEAL_GRACE_SECONDS : 0n);
   const challenge = verified ? challengeLabel(task.spec) : null;
 
   const [expanded, setExpanded] = useState(false);
@@ -49,7 +55,7 @@ export function TaskCard({ item, onChange }: { item: TaskWithSubs; onChange: () 
   const idPad = String(id).padStart(3, "0");
   const canPay = !verified && open && isValidator;
   const canCancel = open && isCreator && !verified && submissions.length === 0 && !expired;
-  const canReclaim = open && isCreator && expired;
+  const canReclaim = open && isCreator && reclaimable;
 
   // one-line hint shown collapsed, describing what expanding reveals
   const hint = !verified
@@ -58,9 +64,11 @@ export function TaskCard({ item, onChange }: { item: TaskWithSubs; onChange: () 
       : "No submissions yet"
     : completed
       ? "Auto-settled — view solver"
-      : expired
+      : reclaimable
         ? "Expired · reclaimable"
-        : "Auto-settles on a valid answer";
+        : expired
+          ? "Closed · reveal window open"
+          : "Auto-settles on a valid answer";
 
   return (
     <article className="relative flex animate-rowIn flex-col border border-rule bg-ground">
@@ -167,6 +175,7 @@ export function TaskCard({ item, onChange }: { item: TaskWithSubs; onChange: () 
               {isValidator && <span className="text-verdict">(YOU)</span>}
             </span>
             <span>{timeAgo(task.createdAt)}</span>
+            {open && hasDeadline && !expired && <span>Closes {timeUntil(task.resolveDeadline)}</span>}
             {expired && (
               <span className="hazard-soft px-1.5 py-0.5 font-medium uppercase tracking-wide2 text-ground">Expired</span>
             )}

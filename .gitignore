@@ -21,3 +21,4 @@ design-import/
 .DS_Store
 *.log
 .gitmsg.tmp
+*.tsbuildinfo

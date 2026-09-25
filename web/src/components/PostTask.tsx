@@ -18,6 +18,15 @@ import { isZero } from "@/lib/format";
 
 type Mode = "verified" | "curated";
 
+// Every bounty must expire (the contract enforces 10 min – 90 days), so one
+// junk submission can never lock the escrow. Default: 24h.
+const DURATIONS = [
+  { label: "1h", seconds: 3600 },
+  { label: "24h", seconds: 24 * 3600 },
+  { label: "3d", seconds: 3 * 24 * 3600 },
+  { label: "7d", seconds: 7 * 24 * 3600 },
+] as const;
+
 const PREIMAGE_WORDS = ["orbit", "falcon", "matrix", "harbor", "zenith", "cobalt", "ember", "quartz"];
 
 const CURATED_PRESETS = [
@@ -52,7 +61,7 @@ export function PostTask({ onPosted }: { onPosted: () => void }) {
   const tx = useTx();
 
   const [mode, setMode] = useState<Mode>("verified");
-  const [expire, setExpire] = useState(false);
+  const [duration, setDuration] = useState<number>(DURATIONS[1].seconds);
   const [kind, setKind] = useState<"backdoor" | "preimage">("backdoor");
   const [vReward, setVReward] = useState("1.00");
   const [spec, setSpec] = useState(CURATED_PRESETS[0].spec);
@@ -127,7 +136,7 @@ export function PostTask({ onPosted }: { onPosted: () => void }) {
   }, [tx.isSuccess, tx.error, tx.hash]);
 
   async function submit() {
-    const deadline = expire ? BigInt(Math.floor(Date.now() / 1000) + 24 * 3600) : 0n;
+    const deadline = BigInt(Math.floor(Date.now() / 1000) + duration);
     if (mode === "verified") {
       await tx.write({
         address: contract,
@@ -265,18 +274,31 @@ export function PostTask({ onPosted }: { onPosted: () => void }) {
         </>
       )}
 
-      {/* expire toggle */}
-      <label className="flex cursor-pointer items-center gap-3">
-        <span className={`relative h-[18px] w-[34px] flex-none border-[1.5px] ${expire ? "border-verdict" : "border-edge"}`}>
-          <span
-            className={`absolute top-0.5 h-[11px] w-[11px] ${expire ? "right-0.5 bg-verdict" : "left-0.5 bg-edge"}`}
-          />
+      {/* deadline — required on-chain */}
+      <div className="flex flex-col gap-2">
+        <span className={kickerCls}>Closes in</span>
+        <div role="radiogroup" className="grid grid-cols-4 border border-rule">
+          {DURATIONS.map((d) => {
+            const on = duration === d.seconds;
+            return (
+              <button
+                key={d.label}
+                role="radio"
+                aria-checked={on}
+                onClick={() => setDuration(d.seconds)}
+                className={`py-2 font-mono text-[13px] ${on ? "bg-verdict text-ground" : "text-sub hover:text-ink"}`}
+              >
+                {d.label}
+              </button>
+            );
+          })}
+        </div>
+        <span className="text-[12.5px] leading-snug text-muted">
+          {mode === "verified"
+            ? "After this, no new answers. Unclaimed USDC is reclaimable 15 min later."
+            : "After this, no new submissions. If the validator hasn't paid, you can reclaim."}
         </span>
-        <input type="checkbox" checked={expire} onChange={(e) => setExpire(e.target.checked)} className="sr-only" />
-        <span className="text-sm text-ink">
-          Auto-expire in 24h <span className="text-muted">(reclaimable)</span>
-        </span>
-      </label>
+      </div>
 
       {/* inline warnings */}
       {!isContractConfigured && (

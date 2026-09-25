@@ -158,6 +158,10 @@ export const bountyEngineAbi = [
 ] as const;
 
 export const MODE = { Curated: 0, Verified: 1 } as const;
+
+// Mirrors BountyEngine.REVEAL_GRACE.
+export const REVEAL_GRACE_SECONDS = 15n * 60n;
+
 export const TASK_STATUS = ["Open", "Completed", "Cancelled"] as const;
 export type TaskStatus = (typeof TASK_STATUS)[number];
 

@@ -87,6 +87,9 @@ async function handleTask(taskId) {
     args: [taskId],
   });
   if (Number(t.status) !== STATUS.Open) return;
+  // Submissions/commits close at the deadline; engaging after it just reverts.
+  const now = BigInt(Math.floor(Date.now() / 1000));
+  if (t.resolveDeadline > 0n && now > t.resolveDeadline) return;
 
   try {
     if (Number(t.mode) === MODE.Verified) {

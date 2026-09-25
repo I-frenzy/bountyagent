@@ -40,6 +40,15 @@ contract BountyEngine {
         _lock = 1;
     }
 
+    // --- Deadline bounds ---------------------------------------------------
+    /// Every task must expire, so a single junk submission/commit can never
+    /// lock an escrow forever (cancelTask is blocked once anyone engages).
+    uint64 public constant MIN_DURATION = 10 minutes;
+    uint64 public constant MAX_DURATION = 90 days;
+    /// Verified mode: commits close at the deadline, but a solver who committed
+    /// in time gets this long to reveal before the creator may reclaim.
+    uint64 public constant REVEAL_GRACE = 15 minutes;
+
     // --- Types -------------------------------------------------------------
     enum Mode {
         Curated, // validator picks a winner
@@ -57,7 +66,7 @@ contract BountyEngine {
         address verifier; // verified only (address(0) in curated)
         uint256 reward; // escrowed native USDC (zeroed on settle/refund)
         uint64 createdAt;
-        uint64 resolveDeadline; // 0 = none; after it, creator may reclaim
+        uint64 resolveDeadline; // required; after it (+grace if verified) creator may reclaim
         Mode mode;
         Status status;
         address winner;
@@ -114,11 +123,10 @@ contract BountyEngine {
         payable
         returns (uint256 taskId)
     {
-        taskId = _open(spec);
+        taskId = _open(spec, resolveDeadline);
         Task storage t = _tasks[taskId];
         t.mode = Mode.Curated;
         t.validator = validator == address(0) ? msg.sender : validator;
-        t.resolveDeadline = resolveDeadline;
         emit TaskCreated(taskId, msg.sender, Mode.Curated, msg.value, t.validator, resolveDeadline, spec);
     }
 
@@ -133,23 +141,25 @@ contract BountyEngine {
     ) external payable returns (uint256 taskId) {
         require(verifier != address(0), "no verifier");
         require(verifier.code.length > 0, "verifier not a contract");
-        taskId = _open(spec);
+        taskId = _open(spec, resolveDeadline);
         Task storage t = _tasks[taskId];
         t.mode = Mode.Verified;
         t.verifier = verifier;
         t.taskData = taskData;
-        t.resolveDeadline = resolveDeadline;
         emit TaskCreated(taskId, msg.sender, Mode.Verified, msg.value, verifier, resolveDeadline, spec);
     }
 
-    function _open(string calldata spec) private returns (uint256 taskId) {
+    function _open(string calldata spec, uint64 resolveDeadline) private returns (uint256 taskId) {
         require(msg.value > 0, "no bounty");
         require(bytes(spec).length > 0, "empty spec");
+        require(resolveDeadline >= block.timestamp + MIN_DURATION, "deadline too soon");
+        require(resolveDeadline <= block.timestamp + MAX_DURATION, "deadline too far");
         taskId = ++taskCount;
         Task storage t = _tasks[taskId];
         t.creator = msg.sender;
         t.reward = msg.value;
         t.createdAt = uint64(block.timestamp);
+        t.resolveDeadline = resolveDeadline;
         t.status = Status.Open;
         t.spec = spec;
     }
@@ -163,6 +173,7 @@ contract BountyEngine {
         require(t.creator != address(0), "no task");
         require(t.mode == Mode.Curated, "not curated");
         require(t.status == Status.Open, "not open");
+        require(block.timestamp <= t.resolveDeadline, "deadline passed");
         require(bytes(resultURI).length > 0, "empty result");
         require(msg.sender != t.creator && msg.sender != t.validator, "self-submit");
 
@@ -217,6 +228,7 @@ contract BountyEngine {
         require(t.creator != address(0), "no task");
         require(t.mode == Mode.Verified, "not verified");
         require(t.status == Status.Open, "not open");
+        require(block.timestamp <= t.resolveDeadline, "deadline passed");
         require(commitment != bytes32(0), "empty commitment");
         require(msg.sender != t.creator, "self-solve");
 
@@ -229,6 +241,8 @@ contract BountyEngine {
     /**
      * @notice Step 2 — reveal the answer; if the verifier accepts it, the
      *         escrow settles to you atomically. First valid revealer wins.
+     *         Reveals stay open past the deadline until the creator reclaims,
+     *         which cannot happen before `resolveDeadline + REVEAL_GRACE`.
      */
     function revealAndClaim(uint256 taskId, bytes calldata answer, bytes32 salt) external nonReentrant {
         Task storage t = _tasks[taskId];
@@ -287,8 +301,9 @@ contract BountyEngine {
     /**
      * @notice After `resolveDeadline`, an unresolved task's creator reclaims the
      *         bounty — even if agents engaged. This is the anti-lockup guarantee.
-     *         In VERIFIED mode this can never rug a rightful winner: a valid
-     *         solver is paid atomically on reveal *before* any deadline matters.
+     *         In VERIFIED mode the creator must also wait out REVEAL_GRACE, so a
+     *         solver who committed just before the deadline can still reveal and
+     *         be paid — the creator cannot race a rightful winner.
      *         In CURATED mode it protects the creator from an absent validator.
      */
     function reclaimExpired(uint256 taskId) external nonReentrant {
@@ -296,7 +311,10 @@ contract BountyEngine {
         require(t.creator != address(0), "no task");
         require(t.status == Status.Open, "not open");
         require(msg.sender == t.creator, "not creator");
-        require(t.resolveDeadline != 0 && block.timestamp > t.resolveDeadline, "not expired");
+        uint256 reclaimAt = t.mode == Mode.Verified
+            ? uint256(t.resolveDeadline) + REVEAL_GRACE
+            : uint256(t.resolveDeadline);
+        require(block.timestamp > reclaimAt, "not expired");
 
         uint256 refund = t.reward;
         t.status = Status.Cancelled;
