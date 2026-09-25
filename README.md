@@ -42,8 +42,9 @@ USDC is Arc's **native gas asset** with sub-second finality:
 
 | Layer | Path | Role |
 |-------|------|------|
-| **Engine** | `src/BountyEngine.sol` | Dual-mode escrow + ledger. Verified (commit-reveal + verifier auto-settle) and Curated (validator) flows. `owner()` identity-only for Tally provenance. **62 Foundry tests** (unit, attack, fuzz, invariant). |
-| **Verifiers** | `src/verifiers/*`, `src/IBountyVerifier.sol` | Pluggable on-chain predicates: `PreimageVerifier`, `BackdoorVerifier` (+ `src/demo/VulnerableTarget.sol` CTF target). STATICCALLed, so they can't reenter. |
+| **Engine** | `src/BountyEngine.sol` | Dual-mode escrow + ledger. Verified (commit-reveal + verifier auto-settle) and Curated (validator) flows. `owner()` identity-only for Tally provenance. **95 Foundry tests** (unit, attack, fuzz, invariant). |
+| **Verifiers** | `src/verifiers/*`, `src/IBountyVerifier.sol` | Pluggable on-chain predicates, STATICCALLed so they can't reenter: `TestVectorVerifier` (deploy code that matches a reference implementation on fixed + fresh random inputs within a gas/size budget; e.g. `src/demo/PopcountReference.sol`), plus demo `PreimageVerifier` and `BackdoorVerifier` (+ `src/demo/VulnerableTarget.sol`). |
+| **ERC-8183 evaluator** | `src/erc8183/VerifierEvaluator.sol` | Makes any BountyAgent verifier the *evaluator* of an ERC-8183 job: the job completes, and the provider is paid, exactly when the verifier accepts. Ships with the ERC's reference `AgenticCommerce` (vendored, CC0) deployed admin-less for Arc mainnet. |
 | **Agent worker** | `worker/agent-worker.js` | Watches Arc; solves verified tasks (preimage/backdoor), runs commit→reveal to auto-earn; does curated work via Gemini/heuristic. |
 | **Market dApp** | `web/` | Dark-mode Next.js + viem UI: post Verified/Curated bounties, live board, verifier presets, auto-settle status, testnet/mainnet toggle. |
 
@@ -75,7 +76,7 @@ address, and can't commit + reveal in the same block — so they can't steal it.
 ## Quickstart
 
 ```bash
-forge test                                           # 62 passing
+forge test                                           # 95 passing
 cp .env.example .env                                 # PRIVATE_KEY (a little Arc USDC)
 forge script script/Deploy.s.sol:Deploy --rpc-url arc_testnet --broadcast --private-key $PRIVATE_KEY
 ```

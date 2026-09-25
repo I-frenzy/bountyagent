@@ -12,7 +12,7 @@ import {IBountyVerifier} from "../IBountyVerifier.sol";
  * the canonical shape of an on-chain-checkable bounty.
  */
 contract PreimageVerifier is IBountyVerifier {
-    function verify(bytes calldata taskData, bytes calldata answer, address)
+    function verify(bytes calldata taskData, bytes calldata answer, address, uint256)
         external
         pure
         override

@@ -17,7 +17,7 @@ interface ITarget {
  * cap rules out the "intended" large values, so only the backdoor qualifies.
  */
 contract BackdoorVerifier is IBountyVerifier {
-    function verify(bytes calldata taskData, bytes calldata answer, address)
+    function verify(bytes calldata taskData, bytes calldata answer, address, uint256)
         external
         view
         override

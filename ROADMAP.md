@@ -63,12 +63,26 @@ mainnet.
 ## Progress
 
 - ✅ §0 deadline fix — committed `4cc8f63`.
-- ✅ §2 contract v3 — built and tested (62 tests: unit, attack, fuzz, invariant).
-  Verifier allowlist is a UI item (frontend phase), not a contract change.
+- ✅ §2 contract v3 — committed `da43802`. Verifier allowlist is a UI item
+  (frontend phase), not a contract change.
 - ✅ §3 cleanup — presets replaced, demo challenges labelled, fake `npx`
   command replaced with real steps.
-- ⏳ Next: F3 test-vector verifier + factory, F1 VerifierEvaluator, then
-  Slither/Aderyn/coverage.
+- ✅ F3 `TestVectorVerifier` + `PopcountReference` demo. **No factory needed:**
+  the solver commits to its candidate's *predicted* address, then sends deploy
+  and reveal back to back. Fresh inputs come from `blockhash(commitBlock + 1)`
+  (not the previous block, which a solver could grind for free by simulation),
+  so `IBountyVerifier.verify` now also receives `commitBlock`. Candidates must
+  be pure (bytecode opcode scan) and compiled without CBOR metadata.
+- ✅ F1 `VerifierEvaluator` + vendored ERC-8183 reference `AgenticCommerce`
+  (CC0). Finding: Arc testnet runs the **ERC's reference** (layout checked
+  on-chain), not `erc-8183/base-contracts` — so we target and deploy that one.
+  Its admin can set fees to 100% and upgrade; our mainnet instance renounces
+  every admin role at deploy (`script/DeployCommerce.s.sol`, tested). Its
+  provider can bump the budget until funding → UI must approve exactly the
+  budget. No grace after expiry → providers must settle before `expiredAt`.
+- 95 tests total. `script/Deploy.s.sol` deploys the whole stack (simulated OK).
+- ⏳ Next: static analysis (Slither/Aderyn) + coverage review of all
+  contracts, including forge-lint's warnings; then testnet rehearsal.
 - Finding (2026-09-25): the current board draws **40× HTTP 429** from the
   public Arc RPC on one page load → the Multicall data layer (§6) is required,
   not optional.

@@ -8,14 +8,14 @@ import {BountyEngine} from "../src/BountyEngine.sol";
 // ---------------------------------------------------------------------------
 
 contract RevertingVerifier {
-    function verify(bytes calldata, bytes calldata, address) external pure returns (bool) {
+    function verify(bytes calldata, bytes calldata, address, uint256) external pure returns (bool) {
         revert("nope");
     }
 }
 
 /// Burns every unit of gas it is forwarded.
 contract GasBurnerVerifier {
-    function verify(bytes calldata, bytes calldata, address) external view returns (bool) {
+    function verify(bytes calldata, bytes calldata, address, uint256) external view returns (bool) {
         uint256 i;
         while (gasleft() > 0) {
             i++;
@@ -26,7 +26,7 @@ contract GasBurnerVerifier {
 
 /// Returns ~100 KB of return data (all zeros) to make the caller copy it.
 contract ReturnBombVerifier {
-    function verify(bytes calldata, bytes calldata, address) external pure returns (bool) {
+    function verify(bytes calldata, bytes calldata, address, uint256) external pure returns (bool) {
         assembly {
             return(0, 100000)
         }
@@ -37,7 +37,7 @@ contract ReturnBombVerifier {
 contract StateWritingVerifier {
     uint256 public writes;
 
-    function verify(bytes calldata, bytes calldata, address) external returns (bool) {
+    function verify(bytes calldata, bytes calldata, address, uint256) external returns (bool) {
         writes++;
         return true;
     }
@@ -45,7 +45,7 @@ contract StateWritingVerifier {
 
 /// Returns a value that is not a valid ABI bool (2).
 contract GarbageReturnVerifier {
-    function verify(bytes calldata, bytes calldata, address) external pure returns (bool) {
+    function verify(bytes calldata, bytes calldata, address, uint256) external pure returns (bool) {
         assembly {
             mstore(0, 2)
             return(0, 32)

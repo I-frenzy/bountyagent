@@ -2,6 +2,11 @@
 src = "src"
 out = "out"
 libs = ["lib"]
+remappings = [
+    "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+    "@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/",
+    "forge-std/=lib/forge-std/src/",
+]
 test = "test"
 script = "script"
 solc = "0.8.30"
@@ -12,6 +17,10 @@ optimizer_runs = 200
 # available. We target "cancun" (not the solc default "prague") as the most
 # conservative level that still gives us the transient reentrancy guard.
 evm_version = "cancun"
+# No CBOR metadata trailer: TestVectorVerifier scans candidate bytecode for
+# banned opcodes, and the trailer's random hash bytes could trip that scan.
+cbor_metadata = false
+bytecode_hash = "none"
 
 [fuzz]
 runs = 10000

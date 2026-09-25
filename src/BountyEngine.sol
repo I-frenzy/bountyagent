@@ -291,7 +291,8 @@ contract BountyEngine {
         // Verifier is STATICCALLed (view) — it cannot reenter or mutate state.
         // A broken/reverting verifier is treated as "not valid", never a brick.
         bool ok;
-        try IBountyVerifier(t.verifier).verify(t.taskData, answer, msg.sender) returns (bool r) {
+        try IBountyVerifier(t.verifier).verify(t.taskData, answer, msg.sender, commitBlockOf[taskId][msg.sender])
+        returns (bool r) {
             ok = r;
         } catch {
             ok = false;
