@@ -350,6 +350,9 @@ export function PostTask({ onPosted }: { onPosted: () => void }) {
               rows={6}
               className="field-input font-mono text-[13px] leading-relaxed"
             />
+            <span className="text-[12.5px] leading-snug text-muted">
+              Paste links (an X post, GitHub, docs, a video) and they show as previews on the bounty.
+            </span>
           </div>
 
           <PayoutFields

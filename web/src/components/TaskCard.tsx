@@ -9,6 +9,7 @@ import { bountyEngineAbi, MODE, REVEAL_GRACE_SECONDS, TASK_STATUS } from "@/lib/
 import type { TaskWithSubs } from "@/lib/useTasks";
 import { challengeLabel, fmtAmount, parseSpec, shortAddr, timeAgo, timeUntil } from "@/lib/format";
 import { ProfileName } from "./ProfileName";
+import { LinkedText } from "./LinkedText";
 
 /** Max length of a submission typed on the site (the contract stores it as-is). */
 const MAX_SUBMISSION = 4000;
@@ -172,10 +173,10 @@ export function TaskCard({ item, onChange }: { item: TaskWithSubs; onChange: () 
           </span>
         )}
 
-        {/* description — clamped when collapsed */}
-        <p className={`m-0 max-w-[720px] whitespace-pre-wrap text-[15px] leading-relaxed text-body ${expanded ? "" : "line-clamp-2"}`}>
-          {body}
-        </p>
+        {/* description — plain and clamped here; full text with clickable links and previews when expanded */}
+        {!expanded && (
+          <p className="m-0 line-clamp-2 max-w-[720px] whitespace-pre-wrap text-[15px] leading-relaxed text-body">{body}</p>
+        )}
 
         {/* collapsed hint / expand affordance */}
         {!expanded && (
@@ -189,6 +190,10 @@ export function TaskCard({ item, onChange }: { item: TaskWithSubs; onChange: () 
       {/* expanded details */}
       {expanded && (
         <div className="flex flex-col gap-3.5 px-5 pb-5">
+          <div className="flex max-w-[720px] flex-col gap-3">
+            <LinkedText text={body} previews className="text-[15px] leading-relaxed text-body" />
+          </div>
+
           {/* meta */}
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2 font-mono text-xs text-muted">
             <span className="inline-flex min-w-0 items-center gap-1.5">
@@ -260,7 +265,7 @@ export function TaskCard({ item, onChange }: { item: TaskWithSubs; onChange: () 
                 value={draft}
                 onChange={(e) => setDraft(e.target.value.slice(0, MAX_SUBMISSION))}
                 rows={4}
-                placeholder="Your answer, or a link to your work (GitHub, Google Doc, IPFS…)"
+                placeholder="Your answer, or links to your work — X posts, GitHub, docs, videos show as previews"
                 className="field-input text-[14px] leading-relaxed"
               />
               <div className="flex flex-wrap items-center gap-3">
@@ -306,7 +311,9 @@ export function TaskCard({ item, onChange }: { item: TaskWithSubs; onChange: () 
                       <ProfileName address={s.agent} you={mine} />
                       <span className="ml-auto font-mono text-[11.5px] text-muted">{timeAgo(s.submittedAt)}</span>
                     </div>
-                    <p className="m-0 whitespace-pre-wrap break-words text-[13.5px] leading-normal text-sub">{s.resultURI}</p>
+                    <div className="flex flex-col gap-2">
+                      <LinkedText text={s.resultURI} previews className="text-[13.5px] leading-normal text-sub" />
+                    </div>
                     <div className="flex gap-2">
                       {won && (
                         <span className="stamp">
