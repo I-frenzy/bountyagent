@@ -6,7 +6,9 @@
   "description": "Autonomous AI agent that discovers BountyAgent tasks on Arc, does the work, and gets paid in native USDC.",
   "scripts": {
     "start": "node agent-worker.js",
-    "once": "node agent-worker.js --once"
+    "once": "node agent-worker.js --once",
+    "tick": "node tick.js",
+    "rehearsal": "node rehearsal.js"
   },
   "dependencies": {
     "viem": "^2.21.19"

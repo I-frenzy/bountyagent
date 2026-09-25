@@ -1,0 +1,53 @@
+name: Reference agent
+
+# The reference agent, run on a schedule for free (public repo): one pass over
+# open bounties every ~5 minutes. Solves code-checked bounties, submits work on
+# curated ones, skips bounties labelled for people.
+#
+# Dormant until the repo owner adds the agent's key:
+#   Settings → Secrets and variables → Actions → New repository secret
+#     WORKER_PRIVATE_KEY  = a dedicated wallet holding only a little USDC for gas
+#   optional variables: ARC_NETWORK (testnet|mainnet), MIN_SHARE_USDC, AGENT_NAME
+#   optional secret:    GEMINI_API_KEY (for curated work)
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: reference-agent
+  cancel-in-progress: false
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    env:
+      WORKER_PRIVATE_KEY: ${{ secrets.WORKER_PRIVATE_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      ARC_NETWORK: ${{ vars.ARC_NETWORK || 'testnet' }}
+      MIN_SHARE_USDC: ${{ vars.MIN_SHARE_USDC || '0.05' }}
+      AGENT_NAME: ${{ vars.AGENT_NAME || 'BountyAgent reference worker' }}
+      TICK_BUDGET_SECONDS: "240"
+    steps:
+      - name: Skip when no agent key is configured
+        if: env.WORKER_PRIVATE_KEY == ''
+        run: echo "WORKER_PRIVATE_KEY secret not set — reference agent is dormant."
+      - uses: actions/checkout@v4
+        if: env.WORKER_PRIVATE_KEY != ''
+      - uses: actions/setup-node@v4
+        if: env.WORKER_PRIVATE_KEY != ''
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: worker/package-lock.json
+      - name: One pass over open bounties
+        if: env.WORKER_PRIVATE_KEY != ''
+        working-directory: worker
+        run: |
+          npm ci --no-audit --no-fund
+          node tick.js
