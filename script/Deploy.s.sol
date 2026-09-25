@@ -61,20 +61,30 @@ contract Deploy is Script {
     }
 
     function run() external {
-        uint256 pk = vm.envUint("PRIVATE_KEY");
+        // Either PRIVATE_KEY in the env, or (safer, for mainnet) a Foundry
+        // keystore / hardware wallet: `--account <name>` or `--ledger` plus `--sender`.
+        uint256 pk = vm.envOr("PRIVATE_KEY", uint256(0));
+        // forge auto-loads .env, which may hold a throwaway testnet key: on mainnet,
+        // refuse an env key unless explicitly allowed, so the real deployment
+        // can't silently come from the wrong wallet.
+        if (block.chainid == 5042 && pk != 0 && !vm.envOr("ALLOW_ENV_KEY_ON_MAINNET", false)) {
+            revert("mainnet: deploy with --account <keystore> or --ledger (or set ALLOW_ENV_KEY_ON_MAINNET=true)");
+        }
+        address deployer = pk != 0 ? vm.addr(pk) : msg.sender;
         Deployed memory d;
         d.commerce = vm.envOr("COMMERCE_ADDRESS", address(0));
         d.ownCommerce = d.commerce == address(0);
         (d.identity, d.reputation) = _erc8004();
 
-        vm.startBroadcast(pk);
+        if (pk != 0) vm.startBroadcast(pk);
+        else vm.startBroadcast();
         d.engine = new BountyEngine(IIdentityRegistry(d.identity), IReputationRegistry(d.reputation));
         d.preimage = new PreimageVerifier();
         d.backdoor = new BackdoorVerifier();
         d.testVector = new TestVectorVerifier();
         d.target = new VulnerableTarget();
         d.popcount = new PopcountReference();
-        if (d.ownCommerce) d.commerce = CommerceDeployer.deploy(ARC_USDC, vm.addr(pk));
+        if (d.ownCommerce) d.commerce = CommerceDeployer.deploy(ARC_USDC, deployer);
         d.evaluator = new VerifierEvaluator(IERC8183(d.commerce));
         vm.stopBroadcast();
 
