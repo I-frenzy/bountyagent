@@ -79,6 +79,11 @@ body {
   textarea.field-input {
     @apply min-h-[120px] resize-y leading-relaxed;
   }
+  /* Single-line field with only a bottom rule (matches the amount inputs). */
+  .field-line {
+    @apply w-full border-b border-edge bg-transparent py-2 font-sans text-[14px] text-ink outline-none
+      placeholder:text-edge transition-colors focus:border-verdict;
+  }
 
   .mono {
     @apply font-mono;

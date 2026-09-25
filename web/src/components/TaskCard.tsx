@@ -8,6 +8,7 @@ import { useToast } from "@/lib/toast";
 import { bountyEngineAbi, MODE, REVEAL_GRACE_SECONDS, TASK_STATUS } from "@/lib/bountyAbi";
 import type { TaskWithSubs } from "@/lib/useTasks";
 import { challengeLabel, fmtAmount, parseSpec, shortAddr, timeAgo, timeUntil } from "@/lib/format";
+import { ProfileName } from "./ProfileName";
 
 /** Max length of a submission typed on the site (the contract stores it as-is). */
 const MAX_SUBMISSION = 4000;
@@ -191,11 +192,7 @@ export function TaskCard({ item, onChange }: { item: TaskWithSubs; onChange: () 
           {/* meta */}
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2 font-mono text-xs text-muted">
             <span className="inline-flex min-w-0 items-center gap-1.5">
-              BY{" "}
-              <a href={addressUrl(task.creator)} target="_blank" rel="noreferrer" className="text-ink no-underline hover:text-verdict">
-                {shortAddr(task.creator)}
-              </a>
-              {isCreator && <span className="text-verdict">(YOU)</span>}
+              BY <ProfileName address={task.creator} you={isCreator} links={false} />
             </span>
             <span className="inline-flex min-w-0 items-center gap-1.5">
               {verified ? "CHECKED BY" : "DECIDED BY"}{" "}
@@ -247,9 +244,7 @@ export function TaskCard({ item, onChange }: { item: TaskWithSubs; onChange: () 
               <i className="ph-fill ph-seal-check text-[15px] text-verdict" />
               <span className="uppercase tracking-wide3">Paid automatically to</span>
               {winners.map((w) => (
-                <a key={w} href={addressUrl(w)} target="_blank" rel="noreferrer" className="text-verdict">
-                  {shortAddr(w)}
-                </a>
+                <ProfileName key={w} address={w} you={w.toLowerCase() === me} />
               ))}
             </div>
           )}
@@ -308,10 +303,7 @@ export function TaskCard({ item, onChange }: { item: TaskWithSubs; onChange: () 
                       <i className="ph ph-user-circle" />
                     </span>
                     <div className="flex min-w-0 flex-wrap items-center gap-2.5">
-                      <a href={addressUrl(s.agent)} target="_blank" rel="noreferrer" className="text-[13.5px] font-medium text-verdict no-underline">
-                        {shortAddr(s.agent)}
-                      </a>
-                      {mine && <span className="font-mono text-[11px] text-verdict">(YOU)</span>}
+                      <ProfileName address={s.agent} you={mine} />
                       <span className="ml-auto font-mono text-[11.5px] text-muted">{timeAgo(s.submittedAt)}</span>
                     </div>
                     <p className="m-0 whitespace-pre-wrap break-words text-[13.5px] leading-normal text-sub">{s.resultURI}</p>

@@ -1,11 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useWallet } from "@/lib/wallet";
 import { useNetwork } from "@/lib/network";
 import { shortAddr } from "@/lib/format";
 
 export function ConnectButton() {
-  const { address, isConnected, connect, disconnect, connecting, hasWallet, wrongNetwork, switchNetwork } =
+  const { address, isConnected, connect, connecting, hasWallet, wrongNetwork, switchNetwork } =
     useWallet();
   const { chain } = useNetwork();
 
@@ -57,10 +58,10 @@ export function ConnectButton() {
   }
 
   return (
-    <button
-      className="inline-flex min-h-[38px] items-center gap-2 whitespace-nowrap border border-rule px-2 font-mono text-[13px] text-ink hover:border-edge sm:gap-2.5 sm:px-3"
-      onClick={disconnect}
-      title="Click to disconnect"
+    <Link
+      href="/profile"
+      className="inline-flex min-h-[38px] items-center gap-2 whitespace-nowrap border border-rule px-2 font-mono text-[13px] text-ink no-underline hover:border-edge sm:gap-2.5 sm:px-3"
+      title="Your profile"
     >
       {/* barcode-like address glyph */}
       <span
@@ -69,7 +70,7 @@ export function ConnectButton() {
         style={{ background: "repeating-linear-gradient(90deg,#FFFFFF 0 3px,#4D4D4D 3px 6px)" }}
       />
       {shortAddr(address!)}
-      <i className="ph ph-caret-down hidden text-muted sm:inline" />
-    </button>
+      <i className="ph ph-caret-right hidden text-muted sm:inline" />
+    </Link>
   );
 }

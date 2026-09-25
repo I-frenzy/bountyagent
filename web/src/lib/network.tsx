@@ -28,6 +28,8 @@ type NetworkState = {
   chain: Chain;
   contract: `0x${string}`;
   verifiers: Verifiers;
+  erc8004: { identity: `0x${string}`; reputation: `0x${string}` };
+  hasProfiles: boolean;
   isLive: boolean;
   isContractConfigured: boolean;
   txUrl: (hash: string) => string;
@@ -59,6 +61,8 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
       chain: cfg.chain,
       contract: cfg.contract,
       verifiers: cfg.verifiers,
+      erc8004: cfg.erc8004,
+      hasProfiles: !/^0x0+$/.test(cfg.erc8004.identity),
       isLive: cfg.live,
       isContractConfigured:
         /^0x[a-fA-F0-9]{40}$/.test(cfg.contract) && !/^0x0+$/.test(cfg.contract),

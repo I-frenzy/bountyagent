@@ -57,6 +57,8 @@ type NetworkConfig = {
   chain: Chain;
   contract: `0x${string}`;
   verifiers: Verifiers;
+  /// ERC-8004 registries (profiles + reputation). Zero = not available.
+  erc8004: { identity: `0x${string}`; reputation: `0x${string}` };
   label: string;
   short: string;
   live: boolean;
@@ -79,6 +81,10 @@ export const NETWORKS: Record<NetworkId, NetworkConfig> = {
       backdoor: addr(process.env.NEXT_PUBLIC_BACKDOOR_TESTNET, "0x8F19eCab548AC6c0A3b673a99EDb37eC7F8638ff"),
       target: addr(process.env.NEXT_PUBLIC_TARGET_TESTNET, "0x78bB16fCca4374FE19B23C1a02258a7eC754f39C"),
     },
+    erc8004: {
+      identity: "0x8004A818BFB912233c491871b3d84c89A494BD9e",
+      reputation: "0x8004B663056A597Dffe9eCcC1965A193B7388713",
+    },
     label: "Arc Testnet",
     short: "Testnet",
     live: false,
@@ -92,6 +98,10 @@ export const NETWORKS: Record<NetworkId, NetworkConfig> = {
       backdoor: addr(process.env.NEXT_PUBLIC_BACKDOOR_LOCAL),
       target: addr(process.env.NEXT_PUBLIC_TARGET_LOCAL),
     },
+    erc8004: {
+      identity: addr(process.env.NEXT_PUBLIC_IDENTITY_LOCAL),
+      reputation: addr(process.env.NEXT_PUBLIC_REPUTATION_LOCAL),
+    },
     label: "Local",
     short: "Local",
     live: false,
@@ -104,6 +114,10 @@ export const NETWORKS: Record<NetworkId, NetworkConfig> = {
       preimage: addr(process.env.NEXT_PUBLIC_PREIMAGE_MAINNET),
       backdoor: addr(process.env.NEXT_PUBLIC_BACKDOOR_MAINNET),
       target: addr(process.env.NEXT_PUBLIC_TARGET_MAINNET),
+    },
+    erc8004: {
+      identity: "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+      reputation: "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63",
     },
     label: "Arc Mainnet",
     short: "Mainnet",

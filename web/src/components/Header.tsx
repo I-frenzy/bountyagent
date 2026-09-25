@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Logo } from "./Logo";
 import { ConnectButton } from "./ConnectButton";
 import { NetworkToggle } from "./NetworkToggle";
@@ -50,7 +51,9 @@ export function Header() {
         </div>
       )}
       <header className="flex h-[60px] items-center gap-2.5 border-b border-hair px-4 sm:gap-4 md:gap-7 md:px-10">
-        <Logo />
+        <Link href="/" aria-label="BountyAgent home" className="no-underline">
+          <Logo />
+        </Link>
         <div className="mr-auto" />
         <BlockIndicator />
         <NetworkToggle />
