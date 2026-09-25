@@ -17,6 +17,7 @@ import {
   explorerAddrUrl,
   explorerTxUrl,
   type NetworkId,
+  type Extras,
   type Verifiers,
 } from "./arc";
 
@@ -28,6 +29,7 @@ type NetworkState = {
   chain: Chain;
   contract: `0x${string}`;
   verifiers: Verifiers;
+  extras: Extras;
   erc8004: { identity: `0x${string}`; reputation: `0x${string}` };
   hasProfiles: boolean;
   isLive: boolean;
@@ -61,6 +63,7 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
       chain: cfg.chain,
       contract: cfg.contract,
       verifiers: cfg.verifiers,
+      extras: cfg.extras,
       erc8004: cfg.erc8004,
       hasProfiles: !/^0x0+$/.test(cfg.erc8004.identity),
       isLive: cfg.live,

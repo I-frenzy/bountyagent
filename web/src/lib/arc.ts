@@ -46,6 +46,13 @@ export const arcLocal = defineChain({
 
 export type NetworkId = "testnet" | "mainnet" | "local";
 
+export type Extras = {
+  testVector: `0x${string}`;
+  popcountReference: `0x${string}`;
+  evaluator: `0x${string}`; // VerifierEvaluator (ERC-8183)
+  commerce: `0x${string}`; // the ERC-8183 AgenticCommerce it evaluates for
+};
+
 export type Verifiers = {
   preimage: `0x${string}`;
   backdoor: `0x${string}`;
@@ -59,12 +66,14 @@ type NetworkConfig = {
   verifiers: Verifiers;
   /// ERC-8004 registries (profiles + reputation). Zero = not available.
   erc8004: { identity: `0x${string}`; reputation: `0x${string}` };
+  /// Implementation bounties + the ERC-8183 evaluator. Zero = not deployed here.
+  extras: Extras;
   label: string;
   short: string;
   live: boolean;
 };
 
-// Addresses. Env overrides win; testnet falls back to the live deploy (2026-09-24).
+// Addresses. Env overrides win; testnet falls back to the live deploy (2026-09-25, deployments/arc-testnet.json).
 // Each variable must be read as a literal `process.env.NEXT_PUBLIC_…` so Next.js
 // inlines it into the browser bundle — a dynamic `process.env[name]` lookup is
 // undefined client-side (it silently disabled every override before).
@@ -75,15 +84,21 @@ export const NETWORKS: Record<NetworkId, NetworkConfig> = {
   testnet: {
     id: "testnet",
     chain: arcTestnet,
-    contract: addr(process.env.NEXT_PUBLIC_CONTRACT_TESTNET, "0x9A7a66fc35b9237FD88E7f9fccC82A830eF90Ade"),
+    contract: addr(process.env.NEXT_PUBLIC_CONTRACT_TESTNET, "0x6f525E678aEf9088c0b5eA227FAaed850E206D08"),
     verifiers: {
-      preimage: addr(process.env.NEXT_PUBLIC_PREIMAGE_TESTNET, "0x8bCa2402420198103d709e2777A4Ca4620f4B9Ee"),
-      backdoor: addr(process.env.NEXT_PUBLIC_BACKDOOR_TESTNET, "0x8F19eCab548AC6c0A3b673a99EDb37eC7F8638ff"),
-      target: addr(process.env.NEXT_PUBLIC_TARGET_TESTNET, "0x78bB16fCca4374FE19B23C1a02258a7eC754f39C"),
+      preimage: addr(process.env.NEXT_PUBLIC_PREIMAGE_TESTNET, "0xeB3389D66b6D6fDF0e674b33A77B6d20bca19a05"),
+      backdoor: addr(process.env.NEXT_PUBLIC_BACKDOOR_TESTNET, "0xF0703618D8BDe4B20260538543e36C08d1a78Ea9"),
+      target: addr(process.env.NEXT_PUBLIC_TARGET_TESTNET, "0x6f1EeEc22E7D9024C63474175ED1355ee77C9492"),
     },
     erc8004: {
       identity: "0x8004A818BFB912233c491871b3d84c89A494BD9e",
       reputation: "0x8004B663056A597Dffe9eCcC1965A193B7388713",
+    },
+    extras: {
+      testVector: addr(process.env.NEXT_PUBLIC_TESTVECTOR_TESTNET, "0x1952Bb6EebbA7D029EA3cf3e8427afA31dC1911A"),
+      popcountReference: addr(process.env.NEXT_PUBLIC_POPCOUNT_TESTNET, "0x5cD597906B6705ea8698Cd3e8769C216240838a3"),
+      evaluator: addr(process.env.NEXT_PUBLIC_EVALUATOR_TESTNET, "0x382B40F21c4A278a2e7d156d6310D7389ca71C58"),
+      commerce: addr(process.env.NEXT_PUBLIC_COMMERCE_TESTNET, "0x0747EEf0706327138c69792bF28Cd525089e4583"),
     },
     label: "Arc Testnet",
     short: "Testnet",
@@ -102,6 +117,12 @@ export const NETWORKS: Record<NetworkId, NetworkConfig> = {
       identity: addr(process.env.NEXT_PUBLIC_IDENTITY_LOCAL),
       reputation: addr(process.env.NEXT_PUBLIC_REPUTATION_LOCAL),
     },
+    extras: {
+      testVector: addr(process.env.NEXT_PUBLIC_TESTVECTOR_LOCAL),
+      popcountReference: addr(process.env.NEXT_PUBLIC_POPCOUNT_LOCAL),
+      evaluator: addr(process.env.NEXT_PUBLIC_EVALUATOR_LOCAL),
+      commerce: addr(process.env.NEXT_PUBLIC_COMMERCE_LOCAL),
+    },
     label: "Local",
     short: "Local",
     live: false,
@@ -118,6 +139,12 @@ export const NETWORKS: Record<NetworkId, NetworkConfig> = {
     erc8004: {
       identity: "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
       reputation: "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63",
+    },
+    extras: {
+      testVector: addr(process.env.NEXT_PUBLIC_TESTVECTOR_MAINNET),
+      popcountReference: addr(process.env.NEXT_PUBLIC_POPCOUNT_MAINNET),
+      evaluator: addr(process.env.NEXT_PUBLIC_EVALUATOR_MAINNET),
+      commerce: addr(process.env.NEXT_PUBLIC_COMMERCE_MAINNET),
     },
     label: "Arc Mainnet",
     short: "Mainnet",
