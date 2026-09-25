@@ -300,6 +300,47 @@ ERC-8004 profile), gained a scheduled mode (GitHub Actions, dormant until the
 user adds the key as a secret), and an **MCP server**: an agent driven only
 over MCP found a bounty, checked a wrong and a right answer for free, and won.
 
+### 3.13 — Mainnet, the self-audit, and the site outage (2026-09-25/26)
+The full stack went live on **Arc mainnet** (addresses in
+`deployments/arc-mainnet.json`) and the reference agent was switched on there.
+A full self-audit followed (`docs/AUDIT.md`): every mainnet contract matches
+the repo source byte-for-byte, the escrow invariant holds on-chain, and the
+agent had already won two bounties with both wins written to ERC-8004. No
+critical or high finding.
+
+Then the user reported the site "not loading". What was really going on:
+
+- **Symptom.** Testnet worked. Clicking **Mainnet** white-screened ("Application
+  error: a client-side exception"). Because the network choice is saved in
+  `localStorage`, anyone who ever picked Mainnet got the crash on *every* visit.
+  The hosted MCP (`/api/mcp?network=mainnet`) failed every call the same way.
+- **Root cause.** The `NEXT_PUBLIC_*_MAINNET` values stored in Vercel start with
+  an invisible **BOM (U+FEFF)**: `"﻿0x9A7a…"`. Seen on both the engine
+  (`CONTRACT`) and the `TARGET` variable, so probably all eight. viem's
+  `InvalidAddressError` on that one bad string took down the whole page. The
+  likeliest source is piping the values into `vercel env add` from Windows
+  PowerShell 5.1, which prepends a BOM to piped text.
+- **Fix 1 (`0da2f3d`).** `addr()` in `web/src/lib/arc.ts` strips whitespace and
+  zero-width marks and only accepts a 20-byte hex address, otherwise it falls
+  back. One dirty variable can no longer crash the app.
+- **Fix 2 (`b766634`).** Mainnet now has the live deploy's addresses built in
+  as fallbacks, the same as testnet. The site needs **no** mainnet env vars at
+  all; the Vercel variables are optional overrides.
+- **Verified locally** with no mainnet vars (board shows the real engine
+  `0x9A7a…0Ade`: 4 bounties, 2 open, 2 completed, matching the chain) and with
+  deliberately BOM-poisoned vars, including a BOM plus trailing space (page and
+  mainnet MCP both work). Typecheck clean.
+- **Not live yet — the Vercel problem.** The Vercel project is **not connected
+  to the GitHub repo**: GitHub shows no deployments and no Vercel status on any
+  commit, so pushes never deploy. The site only changes through the Vercel CLI,
+  and the CLI on this machine is logged out (`vercel whoami` starts a device
+  login). Until someone runs `vercel login` + `vercel --prod` from `web/`, the
+  live site keeps serving the old, crashing build. Tracked as a GitHub issue.
+
+Lesson: config that can be derived from the repo (immutable contract addresses)
+should live in the repo, with env vars as optional overrides. That removes a
+whole class of deploy-time mistakes.
+
 ---
 
 ## 4. Why the architecture is shaped this way (decision log)
@@ -423,8 +464,17 @@ key; **rotate it** when convenient regardless.
 - **On a fork of Arc mainnet, anvil's well-known test accounts carry EIP-7702
   delegations** (sweeper bots): ERC-8004 `_safeMint` rejects them. Clear with
   `cast rpc anvil_setCode <addr> 0x` on the fork.
-- **Vercel CLI login has expired** on this machine; `vercel whoami` hangs.
-  Needs the user: `vercel login`, then `vercel --prod` from `web/`.
+- **Vercel CLI login has expired** on this machine; `vercel whoami` hangs
+  (it starts a device-login flow). Needs the user: `vercel login`, then
+  `vercel --prod` from `web/`.
+- **The Vercel project is not connected to GitHub.** Pushing to `main` does
+  *not* deploy the site; only `vercel --prod` does. Check which build is live by
+  comparing the `app/page-<hash>.js` chunk name before and after a deploy.
+  Connect the repo (Vercel → Settings → Git) so pushes deploy on their own.
+- **Windows PowerShell 5.1 prepends a BOM (U+FEFF) to text piped into native
+  programs.** That is how the Vercel mainnet env vars got an invisible prefix
+  that crashed the site (§3.13). Type env values into the dashboard, or pipe
+  from `cmd`/Git Bash, never from PowerShell.
 - **Arc's explorer is Blockscout** (verify with `--verifier blockscout`, no
   key) and rate-limits per IP for hours after bursts — `script/verify.sh`
   skips already-verified contracts so it can simply be rerun.
@@ -439,19 +489,34 @@ key; **rotate it** when convenient regardless.
 
 ## 8. What's left
 
-All code for the grant is built, tested and rehearsed. What remains needs the
-user's wallet or accounts — step by step in **`docs/MAINNET.md`**:
+All code for the grant is built, tested and rehearsed. The contracts are live on
+Arc mainnet and the reference agent runs there (§3.13).
 
-1. Fund a deployer wallet (~$25 USDC) and a new agent hot wallet (~$2) on Arc mainnet.
-2. Deploy with a keystore/Ledger (dry run first), then `script/verify.sh mainnet`.
-3. Mainnet rehearsal with tiny amounts (`worker/rehearsal.js`, `ARC_NETWORK=mainnet`).
-4. Vercel: add the `NEXT_PUBLIC_*_MAINNET` env vars, `vercel login`, `vercel --prod`.
+**Done:** deployer and agent wallets funded; mainnet deploy
+(`deployments/arc-mainnet.json`); `WORKER_PRIVATE_KEY` secret +
+`ARC_NETWORK=mainnet`, so the scheduled agent is live and has won 2 bounties;
+self-audit (`docs/AUDIT.md`); the mainnet site crash fixed in code (`0da2f3d`,
+`b766634`).
+
+**Still needs the user** (step by step in **`docs/MAINNET.md`**):
+
+1. **Redeploy the site — urgent, the live Mainnet view is down.** The fixes are
+   on GitHub but not on Vercel, because the Vercel project isn't connected to
+   the repo. From `web/`: `vercel login`, then `vercel --prod`. Then connect the
+   repo (Vercel → Settings → Git) so pushes deploy on their own. Optionally
+   delete or retype the BOM-prefixed `NEXT_PUBLIC_*_MAINNET` vars; they're no
+   longer needed. Tracked as a GitHub issue.
+2. Key hygiene (`docs/AUDIT.md` F-1): treat the key pasted in chat as
+   compromised; keep only trivial gas on `0xDFE783…`.
+3. Verify the contracts on `explorer.arc.io` by hand in a browser (the API is
+   behind a Cloudflare challenge; see `docs/MAINNET.md` §4).
+4. Mainnet rehearsal with tiny amounts (`worker/rehearsal.js`,
+   `ARC_NETWORK=mainnet`) → `deployments/arc-mainnet-rehearsal.json`.
 5. Tally registration from the deployer wallet.
-6. GitHub secret `WORKER_PRIVATE_KEY` (+ variable `ARC_NETWORK=mainnet`) to
-   switch on the scheduled reference agent. Rotate the Gemini key.
-7. Seed 10–15 launch bounties; record the demo video (script in
+6. Seed 10–15 launch bounties; record the demo video (script in
    `docs/SUBMISSION.md`); submit on DoraHacks before **Oct 14** (aim for Oct 12).
-8. Also: `script/verify.sh testnet` once the explorer's rate limit resets.
+7. Also: `script/verify.sh testnet` once the explorer's rate limit resets;
+   rotate the Gemini key if one is added.
 
 ---
 

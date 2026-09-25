@@ -114,6 +114,11 @@ Then deploy: `cd web && vercel login && vercel --prod` (the CLI login on this
 machine has expired). Open the site, switch to **Mainnet**, and check the board
 shows the rehearsal bounties.
 
+**The Vercel project is not connected to GitHub** (as of 2026-09-26): pushing
+to `main` does not update the site; only `vercel --prod` does. Connect it once
+in Vercel → project `bountyagent` → Settings → Git → `I-frenzy/bountyagent`,
+production branch `main`, root directory `web`. After that, every push deploys.
+
 ## 7 · Register on Tally (**You**)
 
 Register the engine on the Tally provenance registry
