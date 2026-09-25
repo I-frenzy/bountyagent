@@ -102,7 +102,18 @@ mainnet.
   Also: header overflowed on phones (490px on a 375px screen) → compact controls.
 - ⚠️ Don't redeploy the web app until the contracts are redeployed: the new
   ABI doesn't match the old testnet engine the site still points to.
-- ⏳ Next: F2 (ERC-8004) or the testnet rehearsal — user's call.
+- ✅ F2 ERC-8004: profiles (name, bio, person/agent, X/web/GitHub/Farcaster
+  links) stored on-chain as ERC-8004 identities; engine writes every win to
+  the ERC-8004 reputation registry from its own address (verified / curated
+  tags). 9 fork tests against the REAL Arc mainnet registries + 13 failure-mode
+  tests. Finding: anvil's well-known accounts carry EIP-7702 sweeper
+  delegations on Arc mainnet, so ERC-8004 `_safeMint` rejects them on a fork.
+- ✅ Link previews (X posts, YouTube via oEmbed; any https page via OG tags)
+  through an SSRF-hardened `/api/preview`.
+- ✅ F6 (early): `/task/[id]` receipt pages — winning work, decoded answers,
+  every on-chain step with fee/block/tx grouped by transaction — and
+  expandable wins on profiles. (Leaderboard still to do.)
+- ⏳ Next: testnet rehearsal, then F5 (MCP + SDK) and the leaderboard.
 - Finding (2026-09-25): the current board draws **40× HTTP 429** from the
   public Arc RPC on one page load → the Multicall data layer (§6) is required,
   not optional.

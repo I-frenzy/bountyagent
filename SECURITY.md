@@ -28,6 +28,16 @@ at risk. You'll get a reply within 72 hours.
   a block *before* the first payout can win, so an answer seen in the first
   reveal (even in the mempool) can't be reused. Unpaid shares always go back to
   the creator — early via the validator's `finalizeTask`, or after the deadline.
+- **Reputation can't block or steal a payout.** The engine writes each win to
+  the ERC-8004 reputation registry, but those calls are gas-capped and wrapped;
+  a broken or gas-burning registry only means the win isn't recorded. A caller
+  who sends too little gas for the record makes the whole payout revert, rather
+  than silently dropping it.
+- **Link previews can't be used to probe internal networks.** `/api/preview`
+  only fetches public https hosts (private, loopback, link-local, CGNAT and
+  IPv4-in-IPv6 addresses refused, re-checked on every redirect), with a 5 s
+  timeout and 512 KB cap, and returns only short plain text and an image URL.
+  Profile and preview content is always rendered as text, never as HTML.
 - **Checks-effects-interactions + transient reentrancy guards** on every payout.
 
 ## Known limits (by design, disclosed)

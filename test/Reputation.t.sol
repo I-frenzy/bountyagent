@@ -9,7 +9,17 @@ import {PreimageVerifier} from "../src/verifiers/PreimageVerifier.sol";
 /// Identity registry stand-in: `owners[id]` owns agent `id`.
 contract FakeIdentity is IIdentityRegistry {
     mapping(uint256 => address) public owners;
+    mapping(uint256 => address) public wallets;
     bool public burn;
+    bool public walletReverts;
+
+    function setWallet(uint256 id, address w) external {
+        wallets[id] = w;
+    }
+
+    function setWalletReverts(bool r) external {
+        walletReverts = r;
+    }
 
     function set(uint256 id, address o) external {
         owners[id] = o;
@@ -25,8 +35,9 @@ contract FakeIdentity is IIdentityRegistry {
         return owners[id];
     }
 
-    function getAgentWallet(uint256) external pure returns (address) {
-        return address(0);
+    function getAgentWallet(uint256 id) external view returns (address) {
+        require(!walletReverts, "wallet lookup broken");
+        return wallets[id];
     }
 }
 
@@ -47,8 +58,10 @@ contract FakeReputation is IReputationRegistry {
         mode = m;
     }
 
-    function giveFeedback(uint256, int128 value, uint8, string calldata, string calldata tag2, string calldata, string calldata, bytes32)
-        external
+    // public + memory strings: calldata strings take two stack slots each, which
+    // is too deep for the unoptimized build `forge coverage` uses.
+    function giveFeedback(uint256, int128 value, uint8, string memory, string memory tag2, string memory, string memory, bytes32)
+        public
     {
         if (mode == Mode.Revert) revert("registry down");
         if (mode == Mode.BurnGas) while (true) {}
@@ -164,6 +177,47 @@ contract ReputationTest is Test {
         BountyEngine bare = new BountyEngine(IIdentityRegistry(address(0)), IReputationRegistry(address(0)));
         vm.expectRevert(BountyEngine.NoIdentityRegistry.selector);
         bare.linkAgent(7);
+    }
+
+    function test_NonOwnerCannotLink() public {
+        vm.prank(makeAddr("impostor"));
+        vm.expectRevert(BountyEngine.NotAgentOwner.selector);
+        engine.linkAgent(7);
+    }
+
+    // An agent's registered wallet (not the NFT owner) can link it and is credited.
+    function test_AgentWalletCanLinkAndIsCredited() public {
+        address hot = makeAddr("agentHotWallet");
+        identity.set(9, makeAddr("coldOwner"));
+        identity.setWallet(9, hot);
+        vm.prank(hot);
+        engine.linkAgent(9);
+        assertEq(engine.agentIdOf(hot), 9);
+
+        vm.prank(creator);
+        uint256 id = engine.createTask{value: 1 ether}("x", address(0), uint64(block.timestamp + 1 days), 1);
+        vm.prank(hot);
+        engine.submitResult(id, "done");
+        vm.prank(creator);
+        engine.completeTask(id, hot);
+        assertEq(reputation.calls(), 1);
+    }
+
+    // A broken wallet lookup counts as "not controlled" — never a revert.
+    function test_BrokenWalletLookupIsNotControl() public {
+        identity.set(9, makeAddr("someoneElse"));
+        identity.setWalletReverts(true);
+        vm.prank(solver);
+        vm.expectRevert(BountyEngine.NotAgentOwner.selector);
+        engine.linkAgent(9);
+    }
+
+    function test_RemainingEscrowIsZeroOnceClosed() public {
+        (uint256 id, bytes32 salt) = _readyToReveal();
+        assertEq(engine.remainingEscrow(id), 1 ether);
+        vm.prank(solver);
+        engine.revealAndClaim(id, SECRET, salt);
+        assertEq(engine.remainingEscrow(id), 0);
     }
 
     function test_LinkEmitsAndUnlinks() public {
