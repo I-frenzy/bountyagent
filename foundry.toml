@@ -22,6 +22,9 @@ evm_version = "cancun"
 cbor_metadata = false
 bytecode_hash = "none"
 
+# Deploy.s.sol writes deployments/arc-<network>.json
+fs_permissions = [{ access = "read-write", path = "./deployments" }]
+
 [fuzz]
 runs = 10000
 

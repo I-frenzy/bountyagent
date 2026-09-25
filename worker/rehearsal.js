@@ -1,9 +1,10 @@
-// Full testnet rehearsal: runs every BountyAgent flow for real on Arc testnet
-// and records each transaction as evidence (deployments/arc-testnet-rehearsal.json).
+// Full rehearsal: runs every BountyAgent flow for real on Arc and records each
+// transaction as evidence (deployments/arc-<network>-rehearsal.json).
 //
-//   CREATOR_KEY=0x… WORKER_PRIVATE_KEY=0x… node rehearsal.js
+//   CREATOR_KEY=0x… WORKER_PRIVATE_KEY=0x… ARC_NETWORK=testnet node rehearsal.js
 //
-// Uses throwaway testnet wallets only.
+// Uses two wallets: a creator (posts bounties) and a worker (solves them).
+// Total spend is well under 1 USDC; most of it moves from creator to worker.
 import { readFileSync, writeFileSync } from "node:fs";
 import {
   createPublicClient,
@@ -23,19 +24,23 @@ import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { BOUNTY_ENGINE_ABI } from "./abi.js";
 import { COMMERCE_ABI, EVALUATOR_ABI, POPCOUNT_FAST_BYTECODE } from "./artifacts.js";
 
-const dep = JSON.parse(readFileSync(new URL("../deployments/arc-testnet.json", import.meta.url)));
+const NETWORK = (process.env.ARC_NETWORK || "testnet").toLowerCase();
+const MAINNET = NETWORK === "mainnet";
+const dep = JSON.parse(readFileSync(new URL(`../deployments/arc-${NETWORK}.json`, import.meta.url)));
 const C = dep.contracts;
-const COMMERCE = "0x0747EEf0706327138c69792bF28Cd525089e4583";
-const IDENTITY = "0x8004A818BFB912233c491871b3d84c89A494BD9e";
-const REPUTATION = "0x8004B663056A597Dffe9eCcC1965A193B7388713";
+const ext = dep.external ?? {};
+const find = (prefix) => Object.entries(ext).find(([k]) => k.startsWith(prefix))?.[1];
+const COMMERCE = C.AgenticCommerce ?? find("AgenticCommerce");
+const IDENTITY = MAINNET ? "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432" : "0x8004A818BFB912233c491871b3d84c89A494BD9e";
+const REPUTATION = MAINNET ? "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63" : "0x8004B663056A597Dffe9eCcC1965A193B7388713";
 const USDC = "0x3600000000000000000000000000000000000000";
-const EXPLORER = "https://explorer.testnet.arc.io";
+const EXPLORER = MAINNET ? "https://explorer.arc.io" : "https://explorer.testnet.arc.io";
 
 const arcTestnet = defineChain({
-  id: 5042002,
-  name: "Arc Testnet",
+  id: MAINNET ? 5042 : 5042002,
+  name: MAINNET ? "Arc" : "Arc Testnet",
   nativeCurrency: { name: "USD Coin", symbol: "USDC", decimals: 18 },
-  rpcUrls: { default: { http: ["https://rpc.testnet.arc.io"] } },
+  rpcUrls: { default: { http: [MAINNET ? "https://rpc.mainnet.arc.io" : "https://rpc.testnet.arc.io"] } },
 });
 
 const identityAbi = [
@@ -58,7 +63,7 @@ const wallet = (key) => {
 const creator = wallet(process.env.CREATOR_KEY);
 const worker = wallet(process.env.WORKER_PRIVATE_KEY);
 
-const evidence = { network: "arc-testnet", ranAt: new Date().toISOString(), flows: [] };
+const evidence = { network: `arc-${NETWORK}`, ranAt: new Date().toISOString(), flows: [] };
 let flow;
 const begin = (name) => {
   flow = { name, steps: [] };
@@ -200,7 +205,7 @@ async function main() {
   check((await pub.getBalance({ address: worker.account.address })) > before, "implementation passed 19 on-chain tests and was paid");
 
   // 6 ── F1: an ERC-8183 job on Arc's own AgenticCommerce ───────────────
-  begin("ERC-8183 job on Arc's own contract, settled by VerifierEvaluator");
+  begin(MAINNET ? "ERC-8183 job on our admin-less AgenticCommerce, settled by VerifierEvaluator" : "ERC-8183 job on Arc's own contract, settled by VerifierEvaluator");
   const expiredAt = BigInt(Math.floor(Date.now() / 1000) + 3600);
   r = await send(creator, "commerce.createJob (evaluator = ours)", { address: COMMERCE, abi: COMMERCE_ABI, functionName: "createJob", args: [worker.account.address, C.VerifierEvaluator, expiredAt, "Find the word with this keccak256 hash.", "0x0000000000000000000000000000000000000000"] });
   const created = parseEventLogs({ abi: COMMERCE_ABI, eventName: "JobCreated", logs: r.logs })[0];
@@ -219,7 +224,7 @@ async function main() {
   const usdcBefore = await pub.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [worker.account.address] });
   await send(worker, `evaluator.settle(#${jobId}, "orbit")`, { address: C.VerifierEvaluator, abi: EVALUATOR_ABI, functionName: "settle", args: [jobId, word, jSalt] });
   const job = await pub.readContract({ address: COMMERCE, abi: COMMERCE_ABI, functionName: "getJob", args: [jobId] });
-  check(Number(job.status) === 3, "Arc's ERC-8183 job is Completed — no person evaluated it");
+  check(Number(job.status) === 3, "ERC-8183 job is Completed — no person evaluated it");
   const usdcAfter = await pub.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [worker.account.address] });
   check(usdcAfter > usdcBefore, "provider received the job budget in USDC");
   evidence.erc8183JobId = jobId.toString();
@@ -233,7 +238,7 @@ async function main() {
   const all = evidence.flows.flatMap((f) => f.steps);
   const fees = all.reduce((s, x) => s + Number(x.feeUsdc ?? 0), 0);
   evidence.summary = { transactions: all.length, totalFeesUsdc: fees.toFixed(4) };
-  writeFileSync(new URL("../deployments/arc-testnet-rehearsal.json", import.meta.url), JSON.stringify(evidence, null, 2));
+  writeFileSync(new URL(`../deployments/arc-${NETWORK}-rehearsal.json`, import.meta.url), JSON.stringify(evidence, null, 2));
   console.log(`\nAll flows passed: ${all.length} transactions, $${fees.toFixed(4)} in total fees. Evidence saved.`);
 }
 
