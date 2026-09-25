@@ -78,7 +78,15 @@ type NetworkConfig = {
 // inlines it into the browser bundle — a dynamic `process.env[name]` lookup is
 // undefined client-side (it silently disabled every override before).
 const ZERO = "0x0000000000000000000000000000000000000000" as `0x${string}`;
-const addr = (value: string | undefined, fallback: string = ZERO) => (value || fallback) as `0x${string}`;
+// Env values can arrive with an invisible prefix/suffix — a BOM (U+FEFF) or
+// zero-width space slips in when an address is copy-pasted into a dashboard
+// field. Strip all whitespace and zero-width marks, and fall back unless what
+// remains is a well-formed 20-byte hex address, so one dirty var can never
+// crash the whole app (viem throws InvalidAddressError otherwise).
+const addr = (value: string | undefined, fallback: string = ZERO) => {
+  const cleaned = (value ?? "").replace(/[\s﻿​-‍⁠]/g, "");
+  return (/^0x[0-9a-fA-F]{40}$/.test(cleaned) ? cleaned : fallback) as `0x${string}`;
+};
 
 export const NETWORKS: Record<NetworkId, NetworkConfig> = {
   testnet: {
