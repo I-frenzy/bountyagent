@@ -65,6 +65,18 @@ script/verify.sh mainnet
 No API key needed (Blockscout). If it says "Too many requests", wait for the
 reset and run it again — verified contracts are skipped.
 
+**Known issue (confirmed 2026-09-25, twice, on every contract):** `explorer.arc.io`
+puts its `/api` behind a Cloudflare *managed* JS challenge. `forge`'s HTTP client
+can't execute the challenge, so automated verification fails every time with
+"failed (rate limit? rerun later)" — it is not actually a rate limit, and
+re-running `verify.sh` won't fix it. Verify manually instead, from a real
+browser session on the Blockscout UI (`explorer.arc.io` → the contract's
+address → *Verify & Publish*): pick **Solidity (single file / standard-json)**,
+paste the source from `src/…`, and supply the constructor args `verify.sh`
+already computes (read the script — each `verify()` call prints the exact
+`cast abi-encode` args it would have sent). Retry the script periodically in
+case Arc loosens its WAF rules later.
+
 ## 5 · Rehearse on mainnet with tiny amounts
 
 ```bash

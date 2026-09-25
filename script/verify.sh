@@ -7,6 +7,15 @@
 #
 # The explorer rate-limits per IP; if it answers "Too many requests", wait
 # for the reset and run this again — already-verified contracts are skipped.
+#
+# KNOWN ISSUE (confirmed 2026-09-25, mainnet, every contract, twice):
+# explorer.arc.io's /api sits behind a Cloudflare *managed* JS challenge that
+# forge's HTTP client cannot pass, so this fails with "failed (rate limit?
+# rerun later)" every time — it is NOT a rate limit, and re-running this won't
+# help. Verify manually from a real browser instead: Blockscout UI → the
+# contract's address → Verify & Publish → Solidity (standard-json), using the
+# same source path + constructor args this script computes for each `verify()`
+# call. See docs/MAINNET.md §4 for the full note.
 set -euo pipefail
 
 NET="${1:-testnet}"

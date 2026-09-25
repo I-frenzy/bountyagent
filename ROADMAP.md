@@ -1,8 +1,9 @@
-# BountyAgent — Roadmap (planning, ON HOLD)
+# BountyAgent — Roadmap (mainnet launched)
 
-> Status: **planning phase.** Nothing below is being built yet except §0, which
-> is done but uncommitted. Items move to "in progress" only once planning is
-> finished. See `PROJECT_JOURNAL.md` for history and reasoning.
+> Status: **live on Arc mainnet** (2026-09-25). F1–F8 shipped, security-passed,
+> and deployed for real — see the Progress log below for what's done, and §9
+> for what's left before submission. See `PROJECT_JOURNAL.md` for history and
+> reasoning, and `docs/SUBMISSION.md` for the DoraHacks draft.
 
 **Hard deadline:** Arc Microgrants closes **Oct 14 2026, 23:59 ET** (decisions by
 Oct 21). Requires a **live Arc mainnet deployment**, public repo, and a short
