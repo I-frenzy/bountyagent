@@ -316,9 +316,13 @@ key; **rotate it** when convenient regardless.
 - Arc's `eth_getLogs` (at least on the testnet RPC used here) rejects wide
   block ranges — design around it (see §4) rather than assuming a full scan
   will work.
-- Foundry pins `solc 0.8.20` and `evm_version = "paris"` project-wide,
-  specifically to avoid emitting `PUSH0`, which a young EVM chain may not yet
-  support. Keep this pin unless Arc's docs confirm Shanghai+ support.
+- Foundry originally pinned `solc 0.8.20` + `evm_version = "paris"` to avoid
+  `PUSH0`. Arc's docs now confirm an Osaka baseline, so contract v3 moved to
+  `solc 0.8.30` + `evm_version = "cancun"` (transient-storage reentrancy
+  guard). Confirm on the testnet rehearsal before mainnet.
+- The public Arc RPC rate-limits hard (HTTP 429): the pre-v3 board, which
+  makes several calls per task, drew 40× 429s on a single page load. Batch
+  reads through Multicall3.
 
 ---
 

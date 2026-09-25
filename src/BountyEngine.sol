@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity 0.8.30;
 
 import {IBountyVerifier} from "./IBountyVerifier.sol";
 
@@ -13,41 +13,48 @@ import {IBountyVerifier} from "./IBountyVerifier.sol";
  *               can't be front-run or plagiarised), then reveal; the engine calls
  *               the verifier and, if the answer passes, settles the escrowed
  *               native USDC to the solver *in the same transaction*. No human
- *               judge, no trust — the chain itself is the arbiter. A valid solver
- *               is paid atomically on reveal, so nothing the creator does can
- *               ever rug a rightful winner.
+ *               judge, no trust — the chain itself is the arbiter.
  *
  *   CURATED   — for open-ended / subjective work a contract can't judge. Agents
  *               submit results; the task's validator approves a winner. Trust the
  *               validator, not this contract. A post-deadline reclaim protects
  *               creators from funds locked by an absent validator.
  *
- * Arc uses USDC as its native gas asset, so `msg.value` *is* USDC. Sub-second
- * finality + native-USDC fees make sub-dollar micro-bounties economical.
+ * Arc uses USDC as its native gas asset, so `msg.value` *is* USDC (18-decimal
+ * native view). Sub-second finality + native-USDC fees make sub-dollar
+ * micro-bounties economical.
  *
- * `owner()` is identity-only (for Tally provenance) and has zero power over funds.
+ * No admin, no pause, no upgradeability. `owner()` is identity-only (for Tally
+ * provenance) and has zero power over funds. Beta exposure is bounded instead by
+ * hard caps: MAX_REWARD per task and MAX_DURATION per deadline.
  */
 contract BountyEngine {
     // --- Provenance (identity only; no privileges) -------------------------
     address public immutable owner;
 
-    // --- Reentrancy guard --------------------------------------------------
-    uint256 private _lock = 1;
-    modifier nonReentrant() {
-        require(_lock == 1, "reentrant");
-        _lock = 2;
-        _;
-        _lock = 1;
-    }
-
-    // --- Deadline bounds ---------------------------------------------------
-    /// Every task must expire, so a single junk submission/commit can never
-    /// lock an escrow forever (cancelTask is blocked once anyone engages).
+    // --- Limits ------------------------------------------------------------
+    /// Every task must expire, so a junk submission/commit can never lock an
+    /// escrow forever (cancelTask is blocked once anyone engages).
     uint64 public constant MIN_DURATION = 10 minutes;
-    uint64 public constant MAX_DURATION = 90 days;
+    /// Beta cap: bounds how long funds can sit in escrow.
+    uint64 public constant MAX_DURATION = 30 days;
     /// Verified mode: commits close at the deadline, but a solver who committed
     /// in time gets this long to reveal before the creator may reclaim.
     uint64 public constant REVEAL_GRACE = 15 minutes;
+    /// Beta cap: maximum bounty per task (100 USDC, native 18-decimal view).
+    uint256 public constant MAX_REWARD = 100 ether;
+    /// Curated: distinct submitters per task (keeps getSubmissions bounded).
+    uint256 public constant MAX_SUBMISSIONS = 50;
+
+    // --- Reentrancy guard (transient storage, EIP-1153) --------------------
+    bool private transient _locked;
+
+    modifier nonReentrant() {
+        if (_locked) revert Reentrant();
+        _locked = true;
+        _;
+        _locked = false;
+    }
 
     // --- Types -------------------------------------------------------------
     enum Mode {
@@ -62,14 +69,16 @@ contract BountyEngine {
 
     struct Task {
         address creator;
-        address validator; // curated only (address(0) in verified)
-        address verifier; // verified only (address(0) in curated)
-        uint256 reward; // escrowed native USDC (zeroed on settle/refund)
         uint64 createdAt;
-        uint64 resolveDeadline; // required; after it (+grace if verified) creator may reclaim
+        address validator; // curated only (address(0) in verified)
+        uint64 resolveDeadline; // after it (+REVEAL_GRACE if verified) creator may reclaim
+        address verifier; // verified only (address(0) in curated)
+        uint64 createdBlock;
+        address winner;
+        uint64 settledBlock; // block the task left Open (paid or refunded); 0 while open
         Mode mode;
         Status status;
-        address winner;
+        uint256 reward; // original bounty; never zeroed — `status` guards payout
         string spec; // human/agent-readable requirements (URI or inline)
         bytes taskData; // verified: opaque data passed to the verifier
     }
@@ -79,6 +88,36 @@ contract BountyEngine {
         uint64 submittedAt;
         string resultURI;
     }
+
+    // --- Errors ------------------------------------------------------------
+    error NoBounty();
+    error RewardTooHigh();
+    error EmptySpec();
+    error DeadlineTooSoon();
+    error DeadlineTooFar();
+    error NoVerifier();
+    error VerifierNotContract();
+    error NoTask();
+    error NotCurated();
+    error NotVerified();
+    error NotOpen();
+    error DeadlinePassed();
+    error EmptyResult();
+    error SelfSubmit();
+    error TooManySubmissions();
+    error NotValidator();
+    error WinnerNeverSubmitted();
+    error EmptyCommitment();
+    error SelfSolve();
+    error NoCommit();
+    error RevealTooEarly();
+    error BadReveal();
+    error InvalidAnswer();
+    error NotCreator();
+    error AlreadyEngaged();
+    error NotExpired();
+    error TransferFailed();
+    error Reentrant();
 
     // --- Storage -----------------------------------------------------------
     uint256 public taskCount;
@@ -105,7 +144,7 @@ contract BountyEngine {
     );
     event ResultSubmitted(uint256 indexed taskId, address indexed agent, uint256 index, string resultURI);
     event AnswerCommitted(uint256 indexed taskId, address indexed agent, bytes32 commitment);
-    event AnswerRevealed(uint256 indexed taskId, address indexed agent, bool valid);
+    event AnswerRevealed(uint256 indexed taskId, address indexed agent, bytes answer);
     event TaskCompleted(uint256 indexed taskId, address indexed winner, uint256 reward, Mode mode);
     event TaskRefunded(uint256 indexed taskId, uint256 amount, bool expired);
 
@@ -139,8 +178,8 @@ contract BountyEngine {
         bytes calldata taskData,
         uint64 resolveDeadline
     ) external payable returns (uint256 taskId) {
-        require(verifier != address(0), "no verifier");
-        require(verifier.code.length > 0, "verifier not a contract");
+        if (verifier == address(0)) revert NoVerifier();
+        if (verifier.code.length == 0) revert VerifierNotContract();
         taskId = _open(spec, resolveDeadline);
         Task storage t = _tasks[taskId];
         t.mode = Mode.Verified;
@@ -150,15 +189,17 @@ contract BountyEngine {
     }
 
     function _open(string calldata spec, uint64 resolveDeadline) private returns (uint256 taskId) {
-        require(msg.value > 0, "no bounty");
-        require(bytes(spec).length > 0, "empty spec");
-        require(resolveDeadline >= block.timestamp + MIN_DURATION, "deadline too soon");
-        require(resolveDeadline <= block.timestamp + MAX_DURATION, "deadline too far");
+        if (msg.value == 0) revert NoBounty();
+        if (msg.value > MAX_REWARD) revert RewardTooHigh();
+        if (bytes(spec).length == 0) revert EmptySpec();
+        if (resolveDeadline < block.timestamp + MIN_DURATION) revert DeadlineTooSoon();
+        if (resolveDeadline > block.timestamp + MAX_DURATION) revert DeadlineTooFar();
         taskId = ++taskCount;
         Task storage t = _tasks[taskId];
         t.creator = msg.sender;
         t.reward = msg.value;
         t.createdAt = uint64(block.timestamp);
+        t.createdBlock = uint64(block.number);
         t.resolveDeadline = resolveDeadline;
         t.status = Status.Open;
         t.spec = spec;
@@ -169,45 +210,41 @@ contract BountyEngine {
     // =======================================================================
 
     function submitResult(uint256 taskId, string calldata resultURI) external {
-        Task storage t = _tasks[taskId];
-        require(t.creator != address(0), "no task");
-        require(t.mode == Mode.Curated, "not curated");
-        require(t.status == Status.Open, "not open");
-        require(block.timestamp <= t.resolveDeadline, "deadline passed");
-        require(bytes(resultURI).length > 0, "empty result");
-        require(msg.sender != t.creator && msg.sender != t.validator, "self-submit");
+        Task storage t = _openTask(taskId);
+        if (t.mode != Mode.Curated) revert NotCurated();
+        if (block.timestamp > t.resolveDeadline) revert DeadlinePassed();
+        if (bytes(resultURI).length == 0) revert EmptyResult();
+        if (msg.sender == t.creator || msg.sender == t.validator) revert SelfSubmit();
 
         uint256 slot = _submissionOf[taskId][msg.sender];
+        uint256 index;
         if (slot == 0) {
+            if (_submissions[taskId].length >= MAX_SUBMISSIONS) revert TooManySubmissions();
             _submissions[taskId].push(
                 Submission({agent: msg.sender, submittedAt: uint64(block.timestamp), resultURI: resultURI})
             );
-            uint256 index = _submissions[taskId].length - 1;
+            index = _submissions[taskId].length - 1;
             _submissionOf[taskId][msg.sender] = index + 1;
-            emit ResultSubmitted(taskId, msg.sender, index, resultURI);
         } else {
-            uint256 index = slot - 1;
+            index = slot - 1;
             _submissions[taskId][index].resultURI = resultURI;
             _submissions[taskId][index].submittedAt = uint64(block.timestamp);
-            emit ResultSubmitted(taskId, msg.sender, index, resultURI);
         }
+        emit ResultSubmitted(taskId, msg.sender, index, resultURI);
     }
 
     function completeTask(uint256 taskId, address winner) external nonReentrant {
-        Task storage t = _tasks[taskId];
-        require(t.creator != address(0), "no task");
-        require(t.mode == Mode.Curated, "not curated");
-        require(t.status == Status.Open, "not open");
-        require(msg.sender == t.validator, "not validator");
-        require(_submissionOf[taskId][winner] != 0, "winner never submitted");
+        Task storage t = _openTask(taskId);
+        if (t.mode != Mode.Curated) revert NotCurated();
+        if (msg.sender != t.validator) revert NotValidator();
+        if (_submissionOf[taskId][winner] == 0) revert WinnerNeverSubmitted();
 
-        uint256 reward = t.reward;
         t.status = Status.Completed;
         t.winner = winner;
-        t.reward = 0;
+        t.settledBlock = uint64(block.number);
 
-        _pay(winner, reward);
-        emit TaskCompleted(taskId, winner, reward, Mode.Curated);
+        _pay(winner, t.reward);
+        emit TaskCompleted(taskId, winner, t.reward, Mode.Curated);
     }
 
     // =======================================================================
@@ -224,13 +261,11 @@ contract BountyEngine {
      * reveal in the same block.
      */
     function commitAnswer(uint256 taskId, bytes32 commitment) external {
-        Task storage t = _tasks[taskId];
-        require(t.creator != address(0), "no task");
-        require(t.mode == Mode.Verified, "not verified");
-        require(t.status == Status.Open, "not open");
-        require(block.timestamp <= t.resolveDeadline, "deadline passed");
-        require(commitment != bytes32(0), "empty commitment");
-        require(msg.sender != t.creator, "self-solve");
+        Task storage t = _openTask(taskId);
+        if (t.mode != Mode.Verified) revert NotVerified();
+        if (block.timestamp > t.resolveDeadline) revert DeadlinePassed();
+        if (commitment == bytes32(0)) revert EmptyCommitment();
+        if (msg.sender == t.creator) revert SelfSolve();
 
         if (commitmentOf[taskId][msg.sender] == bytes32(0)) commitCount[taskId] += 1;
         commitmentOf[taskId][msg.sender] = commitment;
@@ -245,15 +280,13 @@ contract BountyEngine {
      *         which cannot happen before `resolveDeadline + REVEAL_GRACE`.
      */
     function revealAndClaim(uint256 taskId, bytes calldata answer, bytes32 salt) external nonReentrant {
-        Task storage t = _tasks[taskId];
-        require(t.creator != address(0), "no task");
-        require(t.mode == Mode.Verified, "not verified");
-        require(t.status == Status.Open, "not open");
+        Task storage t = _openTask(taskId);
+        if (t.mode != Mode.Verified) revert NotVerified();
 
         bytes32 commitment = commitmentOf[taskId][msg.sender];
-        require(commitment != bytes32(0), "no commit");
-        require(block.number > commitBlockOf[taskId][msg.sender], "reveal too early");
-        require(keccak256(abi.encode(answer, salt, msg.sender)) == commitment, "bad reveal");
+        if (commitment == bytes32(0)) revert NoCommit();
+        if (block.number <= commitBlockOf[taskId][msg.sender]) revert RevealTooEarly();
+        if (keccak256(abi.encode(answer, salt, msg.sender)) != commitment) revert BadReveal();
 
         // Verifier is STATICCALLed (view) — it cannot reenter or mutate state.
         // A broken/reverting verifier is treated as "not valid", never a brick.
@@ -263,16 +296,15 @@ contract BountyEngine {
         } catch {
             ok = false;
         }
-        emit AnswerRevealed(taskId, msg.sender, ok);
-        require(ok, "invalid answer");
+        if (!ok) revert InvalidAnswer();
 
-        uint256 reward = t.reward;
         t.status = Status.Completed;
         t.winner = msg.sender;
-        t.reward = 0;
+        t.settledBlock = uint64(block.number);
 
-        _pay(msg.sender, reward);
-        emit TaskCompleted(taskId, msg.sender, reward, Mode.Verified);
+        emit AnswerRevealed(taskId, msg.sender, answer);
+        _pay(msg.sender, t.reward);
+        emit TaskCompleted(taskId, msg.sender, t.reward, Mode.Verified);
     }
 
     // =======================================================================
@@ -284,18 +316,15 @@ contract BountyEngine {
      *         submissions / zero verified commits) — no worker can be rug-pulled.
      */
     function cancelTask(uint256 taskId) external nonReentrant {
-        Task storage t = _tasks[taskId];
-        require(t.creator != address(0), "no task");
-        require(t.status == Status.Open, "not open");
-        require(msg.sender == t.creator, "not creator");
+        Task storage t = _openTask(taskId);
+        if (msg.sender != t.creator) revert NotCreator();
         uint256 engaged = t.mode == Mode.Curated ? _submissions[taskId].length : commitCount[taskId];
-        require(engaged == 0, "already engaged");
+        if (engaged != 0) revert AlreadyEngaged();
 
-        uint256 refund = t.reward;
         t.status = Status.Cancelled;
-        t.reward = 0;
-        _pay(t.creator, refund);
-        emit TaskRefunded(taskId, refund, false);
+        t.settledBlock = uint64(block.number);
+        _pay(t.creator, t.reward);
+        emit TaskRefunded(taskId, t.reward, false);
     }
 
     /**
@@ -307,29 +336,32 @@ contract BountyEngine {
      *         In CURATED mode it protects the creator from an absent validator.
      */
     function reclaimExpired(uint256 taskId) external nonReentrant {
-        Task storage t = _tasks[taskId];
-        require(t.creator != address(0), "no task");
-        require(t.status == Status.Open, "not open");
-        require(msg.sender == t.creator, "not creator");
+        Task storage t = _openTask(taskId);
+        if (msg.sender != t.creator) revert NotCreator();
         uint256 reclaimAt = t.mode == Mode.Verified
             ? uint256(t.resolveDeadline) + REVEAL_GRACE
             : uint256(t.resolveDeadline);
-        require(block.timestamp > reclaimAt, "not expired");
+        if (block.timestamp <= reclaimAt) revert NotExpired();
 
-        uint256 refund = t.reward;
         t.status = Status.Cancelled;
-        t.reward = 0;
-        _pay(t.creator, refund);
-        emit TaskRefunded(taskId, refund, true);
+        t.settledBlock = uint64(block.number);
+        _pay(t.creator, t.reward);
+        emit TaskRefunded(taskId, t.reward, true);
     }
 
     // =======================================================================
     //                              INTERNAL / VIEWS
     // =======================================================================
 
+    function _openTask(uint256 taskId) private view returns (Task storage t) {
+        t = _tasks[taskId];
+        if (t.creator == address(0)) revert NoTask();
+        if (t.status != Status.Open) revert NotOpen();
+    }
+
     function _pay(address to, uint256 amount) private {
-        (bool ok, ) = to.call{value: amount}("");
-        require(ok, "transfer failed");
+        (bool ok,) = to.call{value: amount}("");
+        if (!ok) revert TransferFailed();
     }
 
     function getTask(uint256 taskId) external view returns (Task memory) {

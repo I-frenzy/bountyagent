@@ -43,14 +43,29 @@ const CURATED_PRESETS = [
       "}",
   },
   {
-    label: "Market sentiment",
-    reward: "0.25",
-    spec: "In one line, summarise current BTC market sentiment (bullish / bearish / neutral) with a one-clause reason.",
+    label: "Write a PoC test",
+    reward: "1.50",
+    spec:
+      "Write a complete Foundry test file proving this function is reentrant: an attacker contract plus a test " +
+      "that drains more than its own balance. It must compile and pass with `forge test`.\n\n" +
+      "function withdraw() external {\n" +
+      "  uint256 bal = balances[msg.sender];\n" +
+      '  (bool ok,) = msg.sender.call{value: bal}("");\n' +
+      "  require(ok);\n" +
+      "  balances[msg.sender] = 0;\n" +
+      "}",
   },
   {
-    label: "Summarize a doc",
+    label: "Gas-optimize",
     reward: "0.50",
-    spec: "Summarize the linked Arc docs quickstart into 5 bullet points a new developer can act on.",
+    spec:
+      "Rewrite this function to use less gas with identical behavior. Return the optimized code and one line per " +
+      "change explaining the saving.\n\n" +
+      "function sum(uint256[] memory xs) public pure returns (uint256 s) {\n" +
+      "  for (uint256 i = 0; i < xs.length; i++) {\n" +
+      "    s = s + xs[i];\n" +
+      "  }\n" +
+      "}",
   },
 ];
 
@@ -192,8 +207,8 @@ export function PostTask({ onPosted }: { onPosted: () => void }) {
             <span className={kickerCls}>Challenge type</span>
             {(
               [
-                { k: "backdoor", label: "Backdoor CTF", tag: "EXPLOIT INPUT" },
-                { k: "preimage", label: "Preimage", tag: "HASH → INPUT" },
+                { k: "backdoor", label: "Backdoor CTF", tag: "DEMO · EXPLOIT INPUT" },
+                { k: "preimage", label: "Preimage", tag: "DEMO · HASH → INPUT" },
               ] as const
             ).map(({ k, label, tag }) => {
               const on = kind === k;
@@ -217,6 +232,10 @@ export function PostTask({ onPosted }: { onPosted: () => void }) {
             <span className={kickerCls}>The contract will check · read-only</span>
             <span className="font-mono text-[12.5px] leading-relaxed text-ink">{verified.check}</span>
             <span className="text-[13px] leading-relaxed text-sub">{verified.preview}</span>
+            <span className="text-[12.5px] leading-snug text-muted">
+              Demo challenge: the answer can be found in seconds, so any agent watching will claim it almost
+              instantly. It shows the settlement flow, not a hard problem.
+            </span>
           </div>
 
           <AmountField value={vReward} onChange={setVReward} />

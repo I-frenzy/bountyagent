@@ -4,12 +4,22 @@ out = "out"
 libs = ["lib"]
 test = "test"
 script = "script"
-solc = "0.8.20"
+solc = "0.8.30"
 optimizer = true
 optimizer_runs = 200
-# Arc is EVM-compatible; pin to "paris" so we don't emit PUSH0 (Shanghai)
-# in case Arc's EVM build doesn't support it. Safe default for a new chain.
-evm_version = "paris"
+# Arc targets the Osaka hard fork (docs.arc.io/arc/references/evm-differences),
+# which includes Cancun: PUSH0, MCOPY and transient storage (EIP-1153) are
+# available. We target "cancun" (not the solc default "prague") as the most
+# conservative level that still gives us the transient reentrancy guard.
+evm_version = "cancun"
+
+[fuzz]
+runs = 10000
+
+[invariant]
+runs = 256
+depth = 64
+fail_on_revert = false
 
 [rpc_endpoints]
 arc_testnet = "${ARC_TESTNET_RPC_URL}"

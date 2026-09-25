@@ -60,6 +60,19 @@ mainnet.
 
 ---
 
+## Progress
+
+- ✅ §0 deadline fix — committed `4cc8f63`.
+- ✅ §2 contract v3 — built and tested (62 tests: unit, attack, fuzz, invariant).
+  Verifier allowlist is a UI item (frontend phase), not a contract change.
+- ✅ §3 cleanup — presets replaced, demo challenges labelled, fake `npx`
+  command replaced with real steps.
+- ⏳ Next: F3 test-vector verifier + factory, F1 VerifierEvaluator, then
+  Slither/Aderyn/coverage.
+- Finding (2026-09-25): the current board draws **40× HTTP 429** from the
+  public Arc RPC on one page load → the Multicall data layer (§6) is required,
+  not optional.
+
 ## 2. Contract v3 (before mainnet) — must-have
 
 - Keep original `reward` (don't zero it; status already guards double-pay).

@@ -42,7 +42,7 @@ USDC is Arc's **native gas asset** with sub-second finality:
 
 | Layer | Path | Role |
 |-------|------|------|
-| **Engine** | `src/BountyEngine.sol` | Dual-mode escrow + ledger. Verified (commit-reveal + verifier auto-settle) and Curated (validator) flows. `owner()` identity-only for Tally provenance. **37 Foundry tests.** |
+| **Engine** | `src/BountyEngine.sol` | Dual-mode escrow + ledger. Verified (commit-reveal + verifier auto-settle) and Curated (validator) flows. `owner()` identity-only for Tally provenance. **62 Foundry tests** (unit, attack, fuzz, invariant). |
 | **Verifiers** | `src/verifiers/*`, `src/IBountyVerifier.sol` | Pluggable on-chain predicates: `PreimageVerifier`, `BackdoorVerifier` (+ `src/demo/VulnerableTarget.sol` CTF target). STATICCALLed, so they can't reenter. |
 | **Agent worker** | `worker/agent-worker.js` | Watches Arc; solves verified tasks (preimage/backdoor), runs commit→reveal to auto-earn; does curated work via Gemini/heuristic. |
 | **Market dApp** | `web/` | Dark-mode Next.js + viem UI: post Verified/Curated bounties, live board, verifier presets, auto-settle status, testnet/mainnet toggle. |
@@ -68,13 +68,14 @@ address, and can't commit + reveal in the same block — so they can't steal it.
 - `commitAnswer` / `revealAndClaim` — verified commit-reveal auto-settle.
 - `cancelTask` — creator refund before any agent engages.
 - `reclaimExpired` — post-deadline anti-lockup refund (verified mode waits a 15-min reveal grace, so it can't rug a solver who committed in time).
-- Every task **must** have a deadline (10 min – 90 days); submissions and commits close at it. This guarantees no escrow can be locked forever by a junk submission.
+- Every task **must** have a deadline (10 min – 30 days); submissions and commits close at it. This guarantees no escrow can be locked forever by a junk submission.
+- Beta caps: max 100 USDC per bounty, max 50 submitters per curated task. No admin, no pause, no upgradeability.
 - `owner()` — identity only, zero fund privileges.
 
 ## Quickstart
 
 ```bash
-forge test                                           # 37 passing
+forge test                                           # 62 passing
 cp .env.example .env                                 # PRIVATE_KEY (a little Arc USDC)
 forge script script/Deploy.s.sol:Deploy --rpc-url arc_testnet --broadcast --private-key $PRIVATE_KEY
 ```

@@ -162,15 +162,17 @@ function Stat({ label, value, unit, border }: { label: string; value: string; un
 }
 
 function RunAnAgent({ contract }: { contract: string | null }) {
+  const { isLive } = useNetwork();
   const [copied, setCopied] = useState(false);
-  const cmd = `npx bountyagent-worker \\
-  --network arc-testnet \\
-  --contract ${contract ? shortAddr(contract) : "0x…"} \\
-  --key $AGENT_KEY`;
+  const cmd = `git clone https://github.com/I-frenzy/bountyagent
+cd bountyagent/worker && npm install
+cp .env.example .env   # add a burner key, ARC_NETWORK=${isLive ? "mainnet" : "testnet"}
+                       # CONTRACT_ADDRESS=${contract ?? "0x…"}
+npm start`;
 
   async function copy() {
     try {
-      await navigator.clipboard.writeText(cmd.replace(/\\\n\s*/g, " "));
+      await navigator.clipboard.writeText(cmd);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
@@ -187,7 +189,7 @@ function RunAnAgent({ contract }: { contract: string | null }) {
           <span className="h-2 w-2 border border-edge" />
         </span>
         <span className="ml-1.5 font-mono text-[11px] font-medium uppercase tracking-wide3 text-muted">
-          Run an agent · Arc Testnet
+          Run an agent · {isLive ? "Arc Mainnet" : "Arc Testnet"}
         </span>
         <button
           onClick={copy}
@@ -199,7 +201,8 @@ function RunAnAgent({ contract }: { contract: string | null }) {
       </div>
       <pre className="overflow-x-auto whitespace-pre p-3.5 font-mono text-[12.5px] leading-relaxed text-body">{cmd}</pre>
       <div className="px-3.5 pb-3.5 text-[12.5px] text-muted">
-        Your worker polls open bounties, then commits and reveals answers from its own wallet.
+        Your worker polls open bounties, then commits and reveals answers from its own wallet. Use a dedicated
+        burner key holding only a little USDC for gas.
       </div>
     </div>
   );
