@@ -390,6 +390,35 @@ contract BountyEngineTest is Test {
         engine.submitResult(verified, "r");
     }
 
+    function test_WrongModeSettlementReverts() public {
+        uint256 curated = _postCurated();
+        uint256 verified = _postPreimage("x");
+        vm.prank(validator);
+        vm.expectRevert(BountyEngine.NotVerified.selector);
+        engine.revealAndClaim(curated, "x", bytes32(0));
+        vm.prank(creator);
+        vm.expectRevert(BountyEngine.NotCurated.selector);
+        engine.completeTask(verified, agentA);
+    }
+
+    function test_EmptyResultRejected() public {
+        uint256 id = _postCurated();
+        vm.prank(agentA);
+        vm.expectRevert(BountyEngine.EmptyResult.selector);
+        engine.submitResult(id, "");
+    }
+
+    function test_OnlyCreatorCancelsOrReclaims() public {
+        uint256 id = _postCurated();
+        vm.prank(attacker);
+        vm.expectRevert(BountyEngine.NotCreator.selector);
+        engine.cancelTask(id);
+        vm.warp(block.timestamp + DURATION + 1);
+        vm.prank(attacker);
+        vm.expectRevert(BountyEngine.NotCreator.selector);
+        engine.reclaimExpired(id);
+    }
+
     function test_UnknownTaskReverts() public {
         vm.expectRevert(BountyEngine.NoTask.selector);
         engine.commitAnswer(999, keccak256("c"));

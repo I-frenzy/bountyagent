@@ -254,6 +254,16 @@ contract TestVectorVerifierTest is Test {
         if (ok) assertTrue(abi.decode(ret, (bool)), "if it finished, it must say true");
     }
 
+    // Bounded random inputs (e.g. "x < 2^16") still verify correctly, and the
+    // low-byte implementation — wrong above 255 — is caught.
+    function test_BoundedRandomInputs() public {
+        TestVectorVerifier.Spec memory s = _spec(32);
+        s.inputBound = 1 << 16;
+        vm.setBlockhash(51, keccak256("a"));
+        assertTrue(verifier.verify(abi.encode(s), abi.encode(address(new PopcountFast())), agent, 50));
+        assertFalse(verifier.verify(abi.encode(s), abi.encode(address(new PopcountLowByte())), agent, 50));
+    }
+
     function test_TooManyVectorsIsRejected() public {
         TestVectorVerifier.Spec memory s = _spec(64); // 64 random + 3 fixed > MAX_VECTORS
         vm.setBlockhash(51, keccak256("a"));

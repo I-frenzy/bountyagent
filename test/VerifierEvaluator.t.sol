@@ -275,6 +275,108 @@ contract VerifierEvaluatorTest is Test {
         evaluator.settle(jobId, SECRET, keccak256("wrong salt"));
     }
 
+    function test_EmptyCommitmentRejected() public {
+        uint256 jobId = _createJob();
+        _configure(jobId, address(preimage), abi.encode(keccak256(SECRET)));
+        _fund(jobId);
+        vm.prank(provider);
+        vm.expectRevert(VerifierEvaluator.EmptyCommitment.selector);
+        evaluator.commit(jobId, bytes32(0));
+    }
+
+    function test_SettleWithoutCommitReverts() public {
+        uint256 jobId = _createJob();
+        _configure(jobId, address(preimage), abi.encode(keccak256(SECRET)));
+        _fund(jobId);
+        vm.startPrank(provider);
+        commerce.submit(jobId, keccak256("d"), "");
+        vm.roll(block.number + 1);
+        vm.expectRevert(VerifierEvaluator.NoCommit.selector);
+        evaluator.settle(jobId, SECRET, bytes32(0));
+        vm.stopPrank();
+    }
+
+    // A malicious ERC-8183 contract that calls back into settle() during
+    // complete() is stopped by the guard.
+    function test_ReentrantCommerceIsBlocked() public {
+        ReentrantCommerce bad = new ReentrantCommerce(client, provider);
+        VerifierEvaluator ev = new VerifierEvaluator(IERC8183(address(bad)));
+        bad.setEvaluator(address(ev));
+        vm.prank(client);
+        ev.configure(1, address(preimage), abi.encode(keccak256(SECRET)));
+        bad.setStatus(IERC8183.JobStatus.Funded);
+        bytes32 salt = keccak256("s");
+        vm.prank(provider);
+        ev.commit(1, keccak256(abi.encode(SECRET, salt, provider)));
+        bad.setStatus(IERC8183.JobStatus.Submitted);
+        vm.roll(block.number + 1);
+
+        vm.prank(provider);
+        ev.settle(1, SECRET, salt);
+        assertTrue(bad.reentryAttempted());
+        assertEq(bad.reentryError(), VerifierEvaluator.Reentrant.selector);
+    }
+
+    // --- ERC-8183 guarantees our design relies on ---------------------------
+
+    // With VerifierEvaluator as evaluator, a funded job can end only by the
+    // verifier accepting (complete) or by expiry — the client can't reject it
+    // and pull the money back, and neither can anyone else.
+    function test_ClientCannotRejectFundedJob() public {
+        uint256 jobId = _createJob();
+        _configure(jobId, address(preimage), abi.encode(keccak256(SECRET)));
+        _fund(jobId);
+        vm.prank(client);
+        vm.expectRevert(AgenticCommerce.Unauthorized.selector);
+        commerce.reject(jobId, bytes32(0), "");
+        vm.prank(provider);
+        vm.expectRevert(AgenticCommerce.Unauthorized.selector);
+        commerce.reject(jobId, bytes32(0), "");
+    }
+
+    function test_OnlyEvaluatorCompletes() public {
+        uint256 jobId = _readyToSettle(SECRET, keccak256("s"));
+        vm.prank(client);
+        vm.expectRevert(AgenticCommerce.Unauthorized.selector);
+        commerce.complete(jobId, bytes32(0), "");
+    }
+
+    // The client can still walk away before funding — no money is locked yet.
+    function test_ClientCanRejectOpenJob() public {
+        uint256 jobId = _createJob();
+        vm.prank(client);
+        commerce.reject(jobId, bytes32(0), "");
+        assertEq(uint256(_status(jobId)), uint256(IERC8183.JobStatus.Rejected));
+    }
+
+    function test_NoRefundBeforeExpiry() public {
+        uint256 jobId = _readyToSettle(SECRET, keccak256("s"));
+        vm.expectRevert(AgenticCommerce.WrongStatus.selector);
+        commerce.claimRefund(jobId);
+    }
+
+    // With admin renounced, no hook can ever be whitelisted, so jobs can't be
+    // wired to arbitrary callback contracts.
+    function test_OnlyNoHookAllowed() public {
+        vm.prank(client);
+        vm.expectRevert(AgenticCommerce.HookNotWhitelisted.selector);
+        commerce.createJob(provider, address(evaluator), block.timestamp + 1 days, "x", stranger);
+    }
+
+    function test_CreateJobValidation() public {
+        vm.startPrank(client);
+        vm.expectRevert(AgenticCommerce.ZeroAddress.selector);
+        commerce.createJob(provider, address(0), block.timestamp + 1 days, "x", address(0));
+        vm.expectRevert(AgenticCommerce.ExpiryTooShort.selector);
+        commerce.createJob(provider, address(evaluator), block.timestamp + 5 minutes, "x", address(0));
+        vm.stopPrank();
+    }
+
+    function test_CommerceCannotBeReinitialized() public {
+        vm.expectRevert();
+        commerce.initialize(address(usdc), stranger);
+    }
+
     // --- ERC-8183 behaviour we rely on / document ----------------------------
 
     // After expiry anyone can refund the client — providers must settle first.
@@ -331,5 +433,44 @@ contract VerifierEvaluatorTest is Test {
             )
         );
         commerce.upgradeToAndCall(newImpl, "");
+    }
+}
+
+/// Minimal fake ERC-8183 that re-enters the evaluator from complete().
+contract ReentrantCommerce {
+    address public immutable client;
+    address public immutable provider;
+    address public evaluator;
+    IERC8183.JobStatus public status = IERC8183.JobStatus.Open;
+    bool public reentryAttempted;
+    bytes4 public reentryError;
+
+    constructor(address client_, address provider_) {
+        client = client_;
+        provider = provider_;
+    }
+
+    function setEvaluator(address e) external {
+        evaluator = e;
+    }
+
+    function setStatus(IERC8183.JobStatus s) external {
+        status = s;
+    }
+
+    function getJob(uint256 jobId) external view returns (IERC8183.Job memory j) {
+        j.id = jobId;
+        j.client = client;
+        j.provider = provider;
+        j.evaluator = evaluator;
+        j.status = status;
+    }
+
+    function complete(uint256 jobId, bytes32, bytes calldata) external {
+        reentryAttempted = true;
+        try VerifierEvaluator(evaluator).settle(jobId, "orbit", bytes32(0)) {}
+        catch (bytes memory err) {
+            reentryError = bytes4(err);
+        }
     }
 }
