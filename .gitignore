@@ -2,6 +2,8 @@
 /out/
 /cache/
 /broadcast/**/dry-run/
+# local anvil chain (UI testing)
+/broadcast/**/31337/
 
 # node
 node_modules/

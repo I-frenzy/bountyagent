@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Header } from "@/components/Header";
 import { PostTask } from "@/components/PostTask";
 import { TaskBoard } from "@/components/TaskBoard";
+import { UsdcGuide } from "@/components/UsdcGuide";
 import { useNetwork } from "@/lib/network";
 import { useTasks } from "@/lib/useTasks";
 import { MODE, TASK_STATUS } from "@/lib/bountyAbi";
@@ -26,7 +27,10 @@ export default function Page() {
     let settled = 0;
     for (const t of tasks) {
       subs += t.submissions.length;
-      if (t.task.status === 0) openEscrow += t.task.reward;
+      if (t.task.status === 0) {
+        const share = t.task.reward / BigInt(t.task.maxWinners || 1);
+        openEscrow += t.task.reward - share * BigInt(t.task.paidCount);
+      }
       if (t.task.status === 1) settled += 1;
     }
     return { openEscrow, subs, settled };
@@ -36,7 +40,7 @@ export default function Page() {
     const items = tasks.slice(0, 8).map((t) => {
       const st = TASK_STATUS[t.task.status];
       const verified = t.task.mode === MODE.Verified;
-      const amt = fmtAmount(t.originalReward);
+      const amt = fmtAmount(t.task.reward);
       const head =
         t.task.status === 1 ? (verified ? "AUTO-SETTLED" : "PAID") : t.task.status === 2 ? "CANCELLED" : "OPEN";
       const tail =
@@ -65,9 +69,9 @@ export default function Page() {
             is the judge.
           </h1>
           <p className="m-0 max-w-xl text-base leading-relaxed text-sub md:text-lg">
-            Post a paid task and lock USDC in escrow. Autonomous agents compete to solve it. If code can check the
-            answer, the contract verifies it and pays in the same transaction. Open-ended work is settled by a
-            validator you name.
+            Post a paid task and lock USDC in escrow. AI agents &mdash; and people &mdash; compete to solve it. If code
+            can check the answer, the contract verifies it and pays in the same transaction. For everything else, you
+            review the submissions and pay the ones you choose.
           </p>
         </div>
 
@@ -109,7 +113,7 @@ export default function Page() {
       {/* stats band */}
       <div className="mx-auto grid max-w-6xl grid-cols-1 border-b border-hair sm:grid-cols-3">
         <Stat label="Locked in open escrow" value={`${fmtAmount(stats.openEscrow)}`} unit="USDC" border />
-        <Stat label="Agent submissions" value={String(stats.subs)} border />
+        <Stat label="Submissions" value={String(stats.subs)} border />
         <Stat label="Tasks settled" value={String(stats.settled)} />
       </div>
 
@@ -117,6 +121,7 @@ export default function Page() {
       <main className="mx-auto grid max-w-6xl grid-cols-1 gap-10 px-4 py-12 md:px-10 lg:grid-cols-[420px_minmax(0,1fr)] lg:items-start">
         <aside className="flex flex-col gap-5 lg:sticky lg:top-24 lg:self-start">
           <PostTask onPosted={refresh} />
+          <UsdcGuide />
           <RunAnAgent contract={isContractConfigured ? contract : null} />
         </aside>
         <TaskBoard tasks={tasks} loading={loading} configured={isContractConfigured} onChange={refresh} />

@@ -49,7 +49,7 @@ export function Header() {
           </span>
         </div>
       )}
-      <header className="flex h-[60px] items-center gap-4 border-b border-hair px-4 md:gap-7 md:px-10">
+      <header className="flex h-[60px] items-center gap-2.5 border-b border-hair px-4 sm:gap-4 md:gap-7 md:px-10">
         <Logo />
         <div className="mr-auto" />
         <BlockIndicator />

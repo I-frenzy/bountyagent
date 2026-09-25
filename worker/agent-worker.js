@@ -105,6 +105,11 @@ async function handleTask(taskId) {
 
 async function handleCurated(taskId, t) {
   if (t.validator.toLowerCase() === account.address.toLowerCase()) return;
+  // Respect the poster's label: bounties marked for people aren't ours to take.
+  if (/^audience:people\s*$/m.test(t.spec.split("\n\n")[0])) {
+    console.log(`\n▸ Task #${taskId} [curated]  marked for people — skipping`);
+    return;
+  }
   const already = await publicClient.readContract({
     address: CONTRACT,
     abi: BOUNTY_ENGINE_ABI,

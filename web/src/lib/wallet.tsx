@@ -20,6 +20,7 @@ import {
   type WalletClient,
 } from "viem";
 import { useNetwork } from "./network";
+import { installDevWallet } from "./devWallet";
 
 type Eip1193 = {
   request: (args: { method: string; params?: unknown[] | object }) => Promise<unknown>;
@@ -58,7 +59,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [hasWallet, setHasWallet] = useState(false);
 
   const publicClient = useMemo(
-    () => createPublicClient({ chain, transport: http() }) as PublicClient,
+    // batch.multicall: reads issued together (the board polls many tasks) go out
+    // as one Multicall3 call instead of dozens — the public Arc RPC rate-limits.
+    () => createPublicClient({ chain, transport: http(), batch: { multicall: true } }) as PublicClient,
     [chain],
   );
 
@@ -122,6 +125,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const switchNetwork = useCallback(() => switchToChain(chain), [switchToChain, chain]);
 
   useEffect(() => {
+    installDevWallet(); // no-op unless NEXT_PUBLIC_DEV_WALLET=1 and no real wallet
     const eth = window.ethereum;
     setHasWallet(!!eth);
     if (!eth) return;

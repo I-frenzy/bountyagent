@@ -10,7 +10,7 @@ export function Logo({ size = 20 }: { size?: number }) {
         <span className="bg-verdict" />
         <span />
       </span>
-      <span className="font-sans text-base font-medium tracking-tight2 text-verdict">BountyAgent</span>
+      <span className="hidden font-sans text-base font-medium tracking-tight2 text-verdict min-[420px]:inline">BountyAgent</span>
     </span>
   );
 }

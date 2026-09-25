@@ -12,6 +12,7 @@ import {
 import type { Chain } from "viem";
 import {
   DEFAULT_NETWORK,
+  DEV_LOCAL,
   NETWORKS,
   explorerAddrUrl,
   explorerTxUrl,
@@ -41,7 +42,7 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
   // Restore last choice after mount (avoids hydration mismatch).
   useEffect(() => {
     const saved = window.localStorage.getItem(STORAGE_KEY);
-    if (saved === "testnet" || saved === "mainnet") setNetworkState(saved);
+    if (saved === "testnet" || saved === "mainnet" || (saved === "local" && DEV_LOCAL)) setNetworkState(saved);
   }, []);
 
   const setNetwork = useCallback((id: NetworkId) => {

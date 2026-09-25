@@ -51,6 +51,27 @@ export function fmtAmount(wei: bigint): string {
   return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+export type Audience = "anyone" | "people" | "agents";
+
+/**
+ * A spec may start with `key:value` tag lines (e.g. `solver:backdoor`,
+ * `audience:people`) that agents read; people should only see the rest.
+ * The audience is a label, not an on-chain rule — a contract can't tell a
+ * person from a bot.
+ */
+export function parseSpec(spec: string): { audience: Audience; body: string; tags: Record<string, string> } {
+  const lines = spec.split("\n");
+  const tags: Record<string, string> = {};
+  let i = 0;
+  while (i < lines.length && /^[a-z]+:[a-z0-9_-]+$/.test(lines[i].trim())) {
+    const [k, v] = lines[i].trim().split(":");
+    tags[k] = v;
+    i++;
+  }
+  const audience: Audience = tags.audience === "people" || tags.audience === "agents" ? tags.audience : "anyone";
+  return { audience, body: lines.slice(i).join("\n").trim(), tags };
+}
+
 /** Derive a human challenge label from a verified task's spec tag. */
 export function challengeLabel(spec: string): string | null {
   const s = spec.toLowerCase();

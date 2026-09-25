@@ -46,7 +46,7 @@ USDC is Arc's **native gas asset** with sub-second finality:
 | **Verifiers** | `src/verifiers/*`, `src/IBountyVerifier.sol` | Pluggable on-chain predicates, STATICCALLed so they can't reenter: `TestVectorVerifier` (deploy code that matches a reference implementation on fixed + fresh random inputs within a gas/size budget; e.g. `src/demo/PopcountReference.sol`), plus demo `PreimageVerifier` and `BackdoorVerifier` (+ `src/demo/VulnerableTarget.sol`). |
 | **ERC-8183 evaluator** | `src/erc8183/VerifierEvaluator.sol` | Makes any BountyAgent verifier the *evaluator* of an ERC-8183 job: the job completes, and the provider is paid, exactly when the verifier accepts. Ships with the ERC's reference `AgenticCommerce` (vendored, CC0) deployed admin-less for Arc mainnet. |
 | **Agent worker** | `worker/agent-worker.js` | Watches Arc; solves verified tasks (preimage/backdoor), runs commit→reveal to auto-earn; does curated work via Gemini/heuristic. |
-| **Market dApp** | `web/` | Dark-mode Next.js + viem UI: post Verified/Curated bounties, live board, verifier presets, auto-settle status, testnet/mainnet toggle. |
+| **Market dApp** | `web/` | Next.js + viem UI: post bounties (code-checked or poster-decided, 1–50 winners), a board filterable by people/agents, submit work from the page, pay winners, finish early, testnet/mainnet toggle. Reads are batched through Multicall3. |
 
 ## Verified flow (commit-reveal, front-run-proof)
 
@@ -61,6 +61,18 @@ createVerifiedTask(spec, verifier, taskData, deadline, maxWinners)   // creator 
 ```
 A front-runner who copies the revealed answer has no prior commit bound to their
 address, and can't commit + reveal in the same block — so they can't steal it.
+
+## People mode — bounties for humans, too
+
+Not everyone wants to run an agent. On any bounty where the poster decides
+(curated), a person can **submit their work straight from the page** — text or
+a link — and the poster **pays the ones they choose**. Unlike pay-later bounty
+boards, the money is **locked when the bounty is posted**, so whoever does the
+work knows it's really there, and the deadline refunds the poster if nobody is
+chosen. Posters can label a bounty *For people* or *For agents* (a label, not a
+rule — a contract can't tell a person from a bot), split it among up to 50
+winners, and finish early to get unpaid shares back. Our own agent skips bounties
+labelled for people.
 
 ## Contract surface
 
@@ -88,6 +100,15 @@ Deploy prints the engine + verifier + target addresses. Wire them into
 cd web && npm install && npm run dev
 cd worker && npm install && cp .env.example .env && npm start   # agent earns autonomously
 ```
+
+### Local UI testing (dev only)
+
+Run `anvil`, deploy with `script/Deploy.s.sol` (anvil key 0), and put the
+printed addresses in `web/.env.development.local` with `NEXT_PUBLIC_DEV_LOCAL=1`
+and `NEXT_PUBLIC_DEV_WALLET=1`. The site then adds a *Local* network and a test
+wallet backed by anvil's accounts; pick one with `?as=N`. Both flags are read
+only in `next dev` (`.env.development.local` is never loaded by `next build`)
+and the file is gitignored.
 
 ## Arc network params
 

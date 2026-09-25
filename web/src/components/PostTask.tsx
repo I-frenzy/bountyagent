@@ -14,7 +14,7 @@ import { useNetwork } from "@/lib/network";
 import { useTx } from "@/lib/useTx";
 import { useToast } from "@/lib/toast";
 import { bountyEngineAbi } from "@/lib/bountyAbi";
-import { isZero } from "@/lib/format";
+import { fmtUsdc, isZero } from "@/lib/format";
 
 type Mode = "verified" | "curated";
 
@@ -29,7 +29,34 @@ const DURATIONS = [
 
 const PREIMAGE_WORDS = ["orbit", "falcon", "matrix", "harbor", "zenith", "cobalt", "ember", "quartz"];
 
-const CURATED_PRESETS = [
+const MAX_WINNERS = 50; // BountyEngine.MAX_WINNERS
+const MAX_TOTAL = 100; // BountyEngine.MAX_REWARD, in USDC
+
+type PresetAudience = "anyone" | "people" | "agents";
+const AUDIENCES: { k: PresetAudience; label: string }[] = [
+  { k: "anyone", label: "Anyone" },
+  { k: "people", label: "People" },
+  { k: "agents", label: "Agents" },
+];
+
+const CURATED_PRESETS: { label: string; reward: string; spec: string; audience?: PresetAudience; winners?: string }[] = [
+  {
+    label: "Translate (people)",
+    reward: "0.50",
+    audience: "people",
+    spec:
+      "Translate this paragraph into natural, fluent French. No machine translation, please — it's for a product " +
+      "page.\n\n\"Post a task, lock USDC in escrow, and pay the people who do the work — instantly, on Arc.\"",
+  },
+  {
+    label: "Feedback × 5",
+    reward: "0.20",
+    audience: "people",
+    winners: "5",
+    spec:
+      "Try bountyagent.vercel.app for two minutes and tell us the one thing that confused you most. " +
+      "The five most useful answers get paid.",
+  },
   {
     label: "Audit this code",
     reward: "1.00",
@@ -82,6 +109,8 @@ export function PostTask({ onPosted }: { onPosted: () => void }) {
   const [spec, setSpec] = useState(CURATED_PRESETS[0].spec);
   const [cReward, setCReward] = useState(CURATED_PRESETS[0].reward);
   const [validator, setValidator] = useState("");
+  const [audience, setAudience] = useState<PresetAudience>(CURATED_PRESETS[0].audience ?? "anyone");
+  const [winners, setWinners] = useState(CURATED_PRESETS[0].winners ?? "1");
 
   const verifiersReady = !isZero(verifiers.backdoor) && !isZero(verifiers.preimage) && !isZero(verifiers.target);
 
@@ -124,8 +153,21 @@ export function PostTask({ onPosted }: { onPosted: () => void }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kind, verifiers.preimage, verifiers.backdoor, verifiers.target, tx.hash]);
 
-  const reward = mode === "verified" ? vReward : cReward;
-  const rewardNum = Number(reward);
+  // The amount field is *per winner*, so the total always splits evenly
+  // (the contract requires reward % maxWinners == 0).
+  const perWinner = mode === "verified" ? vReward : cReward;
+  const winnerCount = /^\d+$/.test(winners) ? Number(winners) : 0;
+  const winnersValid = winnerCount >= 1 && winnerCount <= MAX_WINNERS;
+  const perWinnerWei = (() => {
+    try {
+      return parseEther(perWinner || "0");
+    } catch {
+      return 0n;
+    }
+  })();
+  const totalWei = winnersValid ? perWinnerWei * BigInt(winnerCount) : 0n;
+  const total = fmtUsdc(totalWei);
+  const overCap = totalWei > parseEther(String(MAX_TOTAL));
   const validatorValid = validator.trim() === "" || isAddress(validator.trim());
   const busy = tx.isPending || tx.isConfirming;
 
@@ -133,13 +175,15 @@ export function PostTask({ onPosted }: { onPosted: () => void }) {
     isConnected &&
     !wrongNetwork &&
     isContractConfigured &&
-    rewardNum > 0 &&
+    perWinnerWei > 0n &&
+    winnersValid &&
+    !overCap &&
     !busy &&
     (mode === "verified" ? verifiersReady : spec.trim().length > 0 && validatorValid);
 
   useEffect(() => {
     if (tx.isSuccess && tx.hash) {
-      push({ kind: "success", msg: `Bounty posted — ${reward} USDC locked in escrow.`, href: txUrl(tx.hash) });
+      push({ kind: "success", msg: `Bounty posted — ${total} USDC locked in escrow.`, href: txUrl(tx.hash) });
       onPosted();
       tx.reset();
     }
@@ -157,17 +201,19 @@ export function PostTask({ onPosted }: { onPosted: () => void }) {
         address: contract,
         abi: bountyEngineAbi,
         functionName: "createVerifiedTask",
-        args: [verified.spec, verified.verifier, verified.taskData, deadline, 1],
-        value: parseEther(vReward || "0"),
+        args: [verified.spec, verified.verifier, verified.taskData, deadline, winnerCount],
+        value: totalWei,
       });
     } else {
       const v = validator.trim() === "" ? zeroAddress : (validator.trim() as `0x${string}`);
+      // Audience is a tag line agents can read (and the UI hides): a label, not a rule.
+      const taggedSpec = audience === "anyone" ? spec.trim() : `audience:${audience}\n${spec.trim()}`;
       await tx.write({
         address: contract,
         abi: bountyEngineAbi,
         functionName: "createTask",
-        args: [spec, v, deadline, 1],
-        value: parseEther(cReward || "0"),
+        args: [taggedSpec, v, deadline, winnerCount],
+        value: totalWei,
       });
     }
   }
@@ -189,15 +235,15 @@ export function PostTask({ onPosted }: { onPosted: () => void }) {
           onClick={() => setMode("verified")}
           className={`flex flex-col gap-1 p-3 text-left ${mode === "verified" ? "bg-verdict text-ground" : "text-sub"}`}
         >
-          <span className="text-sm font-medium">Verified</span>
-          <span className={`font-mono text-[11px] ${mode === "verified" ? "text-edge" : "text-muted"}`}>AUTO-SETTLE</span>
+          <span className="text-sm font-medium">Code checks it</span>
+          <span className={`font-mono text-[11px] ${mode === "verified" ? "text-edge" : "text-muted"}`}>AUTO-PAY</span>
         </button>
         <button
           onClick={() => setMode("curated")}
           className={`flex flex-col gap-1 p-3 text-left ${mode === "curated" ? "bg-verdict text-ground" : "text-sub"}`}
         >
-          <span className="text-sm font-medium">Curated</span>
-          <span className={`font-mono text-[11px] ${mode === "curated" ? "text-edge" : "text-muted"}`}>VALIDATOR</span>
+          <span className="text-sm font-medium">You decide</span>
+          <span className={`font-mono text-[11px] ${mode === "curated" ? "text-edge" : "text-muted"}`}>PEOPLE OR AGENTS</span>
         </button>
       </div>
 
@@ -238,7 +284,15 @@ export function PostTask({ onPosted }: { onPosted: () => void }) {
             </span>
           </div>
 
-          <AmountField value={vReward} onChange={setVReward} />
+          <PayoutFields
+            perWinner={vReward}
+            onPerWinner={setVReward}
+            winners={winners}
+            onWinners={setWinners}
+            total={total}
+            overCap={overCap}
+            winnersValid={winnersValid}
+          />
         </>
       ) : (
         <>
@@ -253,6 +307,8 @@ export function PostTask({ onPosted }: { onPosted: () => void }) {
                     onClick={() => {
                       setSpec(p.spec);
                       setCReward(p.reward);
+                      setAudience(p.audience ?? "anyone");
+                      setWinners(p.winners ?? "1");
                     }}
                     className={`px-2.5 py-1.5 text-[13px] ${on ? "border border-verdict text-verdict" : "border border-rule text-sub hover:border-edge"}`}
                   >
@@ -261,6 +317,29 @@ export function PostTask({ onPosted }: { onPosted: () => void }) {
                 );
               })}
             </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <span className={kickerCls}>Who is this for</span>
+            <div role="radiogroup" className="grid grid-cols-3 border border-rule">
+              {AUDIENCES.map((a) => {
+                const on = audience === a.k;
+                return (
+                  <button
+                    key={a.k}
+                    role="radio"
+                    aria-checked={on}
+                    onClick={() => setAudience(a.k)}
+                    className={`py-2 text-[13px] ${on ? "bg-verdict text-ground" : "text-sub hover:text-ink"}`}
+                  >
+                    {a.label}
+                  </button>
+                );
+              })}
+            </div>
+            <span className="text-[12.5px] leading-snug text-muted">
+              A label for who should take it on. Anyone can still submit — a contract can&apos;t tell a person from a bot.
+            </span>
           </div>
 
           <div className="flex flex-col gap-2">
@@ -273,10 +352,19 @@ export function PostTask({ onPosted }: { onPosted: () => void }) {
             />
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <AmountField value={cReward} onChange={setCReward} compact />
+          <PayoutFields
+            perWinner={cReward}
+            onPerWinner={setCReward}
+            winners={winners}
+            onWinners={setWinners}
+            total={total}
+            overCap={overCap}
+            winnersValid={winnersValid}
+            compact
+          />
+          <div className="grid grid-cols-1 gap-4">
             <div className="flex flex-col gap-1.5">
-              <span className={kickerCls}>Validator · optional</span>
+              <span className={kickerCls}>Who decides · optional</span>
               <input
                 value={validator}
                 onChange={(e) => setValidator(e.target.value)}
@@ -315,7 +403,7 @@ export function PostTask({ onPosted }: { onPosted: () => void }) {
         <span className="text-[12.5px] leading-snug text-muted">
           {mode === "verified"
             ? "After this, no new answers. Unclaimed USDC is reclaimable 15 min later."
-            : "After this, no new submissions. If the validator hasn't paid, you can reclaim."}
+            : "After this, no new submissions. Anything you haven't paid out, you can reclaim."}
         </span>
       </div>
 
@@ -333,7 +421,7 @@ export function PostTask({ onPosted }: { onPosted: () => void }) {
         <div className="flex items-start gap-2.5 border border-verdict p-3">
           <span aria-hidden className="w-[18px] flex-none self-stretch hazard-thin" />
           <span className="text-[13px] leading-snug text-ink">
-            <span className="font-medium text-verdict">Mainnet: real USDC.</span> This locks {reward || "0"} USDC.
+            <span className="font-medium text-verdict">Mainnet: real USDC.</span> This locks {total} USDC.
             Double-check the amount{mode === "curated" ? " and the validator" : ""}.
           </span>
         </div>
@@ -363,7 +451,7 @@ export function PostTask({ onPosted }: { onPosted: () => void }) {
             ) : (
               <>
                 <i className={isLive ? "ph-bold ph-warning" : "ph ph-lock-simple"} />
-                Lock {reward || "0"} {isLive ? "real " : ""}USDC
+                Lock {total} {isLive ? "real " : ""}USDC
               </>
             )}
           </span>
@@ -378,30 +466,75 @@ export function PostTask({ onPosted }: { onPosted: () => void }) {
   );
 }
 
-function AmountField({
-  value,
-  onChange,
+/** Amount per winner + number of winners, with the total that gets locked. */
+function PayoutFields({
+  perWinner,
+  onPerWinner,
+  winners,
+  onWinners,
+  total,
+  overCap,
+  winnersValid,
   compact,
 }: {
-  value: string;
-  onChange: (v: string) => void;
+  perWinner: string;
+  onPerWinner: (v: string) => void;
+  winners: string;
+  onWinners: (v: string) => void;
+  total: string;
+  overCap: boolean;
+  winnersValid: boolean;
   compact?: boolean;
 }) {
+  const kicker = "font-mono text-[11px] font-medium uppercase tracking-wide3 text-muted";
+  const multi = winners !== "1";
   return (
-    <div className="flex flex-col gap-1.5">
-      <span className="font-mono text-[11px] font-medium uppercase tracking-wide3 text-muted">Amount</span>
-      <div className="flex items-baseline gap-2.5 border-b border-verdict pb-1.5">
-        <input
-          value={value}
-          onChange={(e) => onChange(e.target.value.replace(/[^0-9.]/g, ""))}
-          inputMode="decimal"
-          placeholder="0.00"
-          className={`tnum min-w-0 flex-1 bg-transparent font-light tracking-tighter text-verdict outline-none placeholder:text-edge ${
-            compact ? "text-[28px]" : "text-[44px] leading-none"
-          }`}
-        />
-        <span className="font-mono text-xs font-medium text-muted">USDC</span>
+    <div className="flex flex-col gap-2">
+      <div className="grid grid-cols-[minmax(0,1fr)_96px] gap-4">
+        <label className="flex flex-col gap-1.5">
+          <span className={kicker}>{multi ? "Each winner gets" : "Amount"}</span>
+          <span className="flex items-baseline gap-2.5 border-b border-verdict pb-1.5">
+            <input
+              value={perWinner}
+              onChange={(e) => onPerWinner(e.target.value.replace(/[^0-9.]/g, ""))}
+              inputMode="decimal"
+              placeholder="0.00"
+              className={`tnum min-w-0 flex-1 bg-transparent font-light tracking-tighter text-verdict outline-none placeholder:text-edge ${
+                compact ? "text-[28px]" : "text-[44px] leading-none"
+              }`}
+            />
+            <span className="font-mono text-xs font-medium text-muted">USDC</span>
+          </span>
+        </label>
+        <label className="flex flex-col gap-1.5">
+          <span className={kicker}>Winners</span>
+          <span className={`flex items-baseline border-b pb-1.5 ${winnersValid ? "border-edge" : "border-verdict"}`}>
+            <input
+              value={winners}
+              onChange={(e) => onWinners(e.target.value.replace(/[^0-9]/g, "").slice(0, 2))}
+              inputMode="numeric"
+              aria-label="Number of winners"
+              className={`tnum w-full bg-transparent font-light tracking-tighter text-verdict outline-none ${
+                compact ? "text-[28px]" : "text-[44px] leading-none"
+              }`}
+            />
+          </span>
+        </label>
       </div>
+      {!winnersValid ? (
+        <span className="text-[12.5px] text-ink">Winners must be between 1 and {MAX_WINNERS}.</span>
+      ) : overCap ? (
+        <span className="text-[12.5px] text-ink">
+          The total is {total} USDC. During the beta a bounty can lock at most {MAX_TOTAL} USDC.
+        </span>
+      ) : (
+        multi && (
+          <span className="text-[12.5px] text-sub">
+            Locks <span className="tnum text-verdict">{total} USDC</span> in total. Anything you don&apos;t pay out comes
+            back to you.
+          </span>
+        )
+      )}
     </div>
   );
 }

@@ -3,8 +3,21 @@
 import { useState } from "react";
 import { TaskCard } from "./TaskCard";
 import type { TaskWithSubs } from "@/lib/useTasks";
+import { parseSpec } from "@/lib/format";
+import { MODE } from "@/lib/bountyAbi";
 
 type Filter = "all" | "open" | "completed";
+type Who = "everyone" | "people" | "agents";
+
+// "For people": work a person can do (not labelled agents-only, and not an
+// auto-checked code challenge). "For agents": code challenges and anything not
+// labelled people-only.
+function matchesWho(t: TaskWithSubs, who: Who) {
+  if (who === "everyone") return true;
+  const { audience } = parseSpec(t.task.spec);
+  const verified = t.task.mode === MODE.Verified;
+  return who === "people" ? !verified && audience !== "agents" : verified || audience !== "people";
+}
 
 export function TaskBoard({
   tasks,
@@ -18,14 +31,16 @@ export function TaskBoard({
   onChange: () => void;
 }) {
   const [filter, setFilter] = useState<Filter>("all");
+  const [who, setWho] = useState<Who>("everyone");
+  const scoped = tasks.filter((t) => matchesWho(t, who));
 
   const counts = {
-    all: tasks.length,
-    open: tasks.filter((t) => t.task.status === 0).length,
-    completed: tasks.filter((t) => t.task.status === 1).length,
+    all: scoped.length,
+    open: scoped.filter((t) => t.task.status === 0).length,
+    completed: scoped.filter((t) => t.task.status === 1).length,
   };
 
-  const shown = tasks.filter((t) => {
+  const shown = scoped.filter((t) => {
     if (filter === "open") return t.task.status === 0;
     if (filter === "completed") return t.task.status === 1;
     return true;
@@ -63,6 +78,27 @@ export function TaskBoard({
         </div>
       </div>
 
+      {/* who is it for */}
+      <div role="radiogroup" aria-label="Who the work is for" className="flex flex-wrap gap-1.5">
+        {(
+          [
+            { k: "everyone", label: "All work" },
+            { k: "people", label: "For people" },
+            { k: "agents", label: "For agents" },
+          ] as const
+        ).map(({ k, label }) => (
+          <button
+            key={k}
+            role="radio"
+            aria-checked={who === k}
+            onClick={() => setWho(k)}
+            className={`px-2.5 py-1.5 text-[13px] ${who === k ? "border border-verdict text-verdict" : "border border-rule text-sub hover:border-edge"}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       {/* body */}
       {!configured ? (
         <Empty
@@ -93,8 +129,8 @@ export function TaskBoard({
             </span>
             <span className="text-3xl font-medium leading-none tracking-tighter text-verdict">No tasks yet.</span>
             <span className="text-sm leading-relaxed text-sub">
-              Escrow is empty on this network. Post the first bounty; agents polling this contract will pick it up
-              within seconds.
+              Nothing to show here yet. Post the first bounty — agents polling this contract pick new ones up within
+              seconds, and people can submit from this page.
             </span>
           </div>
         ) : (

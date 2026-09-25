@@ -89,7 +89,20 @@ mainnet.
   precede the first payout) — mutation-tested: removing it lets a copier win.
   15 new tests + invariants rewritten for multi-winner. 124 tests. UI still
   posts single-winner bounties; multi-winner controls come with F8.
-- ⏳ Next: testnet rehearsal (contracts are now frozen), then F8 + F2.
+- ✅ F8 People mode (web): submit box on poster-decided bounties; audience
+  label (Anyone/People/Agents) + board filter; "Pay each winner × N winners"
+  with live total and the 100 USDC cap; Pay / Finish & refund unpaid; plain-
+  language labels ("Code checks it" / "You decide"); "How to get USDC on Arc"
+  guide; our agent skips people-labelled bounties. Tested end to end in a
+  browser on a local anvil chain (post as account 0 → submit as account 1 →
+  pay → finish early): balances exact to the wei. Board now reads via
+  Multicall3 (no event scan, no cache).
+- Fixed on the way: **mainnet addresses could never load** — `arc.ts` read
+  `process.env[name]` dynamically, which Next.js doesn't inline client-side.
+  Also: header overflowed on phones (490px on a 375px screen) → compact controls.
+- ⚠️ Don't redeploy the web app until the contracts are redeployed: the new
+  ABI doesn't match the old testnet engine the site still points to.
+- ⏳ Next: F2 (ERC-8004) or the testnet rehearsal — user's call.
 - Finding (2026-09-25): the current board draws **40× HTTP 429** from the
   public Arc RPC on one page load → the Multicall data layer (§6) is required,
   not optional.

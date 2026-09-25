@@ -1,5 +1,13 @@
 import { defineChain, type Chain } from "viem";
 
+// Multicall3 at its standard address (verified on Arc testnet and mainnet), so
+// viem batches the board's many reads into one call and avoids RPC rate limits.
+const MULTICALL3 = "0xcA11bde05977b3631167028862bE2a173976CA11" as const;
+
+// Dev only: a local anvil chain for testing UI flows end to end. Never on in
+// production — enabled by NEXT_PUBLIC_DEV_LOCAL=1 in web/.env.development.local.
+export const DEV_LOCAL = process.env.NEXT_PUBLIC_DEV_LOCAL === "1";
+
 /**
  * Arc chains. nativeCurrency.decimals = 18 because USDC is Arc's native gas
  * asset in its 18-decimal view, so `parseEther` correctly encodes `msg.value`.
@@ -12,6 +20,7 @@ export const arcTestnet = defineChain({
   blockExplorers: {
     default: { name: "Arc Explorer", url: "https://explorer.testnet.arc.io" },
   },
+  contracts: { multicall3: { address: MULTICALL3 } },
   testnet: true,
 });
 
@@ -23,9 +32,19 @@ export const arcMainnet = defineChain({
   blockExplorers: {
     default: { name: "Arc Explorer", url: "https://explorer.arc.io" },
   },
+  contracts: { multicall3: { address: MULTICALL3 } },
 });
 
-export type NetworkId = "testnet" | "mainnet";
+export const arcLocal = defineChain({
+  id: 31337,
+  name: "Local (anvil)",
+  nativeCurrency: { name: "USD Coin", symbol: "USDC", decimals: 18 },
+  rpcUrls: { default: { http: ["http://127.0.0.1:8545"] } },
+  contracts: { multicall3: { address: MULTICALL3 } },
+  testnet: true,
+});
+
+export type NetworkId = "testnet" | "mainnet" | "local";
 
 export type Verifiers = {
   preimage: `0x${string}`;
@@ -43,33 +62,48 @@ type NetworkConfig = {
   live: boolean;
 };
 
-// Addresses. Env overrides win; defaults are the live testnet deploy (2026-09-24).
+// Addresses. Env overrides win; testnet falls back to the live deploy (2026-09-24).
+// Each variable must be read as a literal `process.env.NEXT_PUBLIC_…` so Next.js
+// inlines it into the browser bundle — a dynamic `process.env[name]` lookup is
+// undefined client-side (it silently disabled every override before).
 const ZERO = "0x0000000000000000000000000000000000000000" as `0x${string}`;
-const def = (k: string, fallback: string) => (process.env[k] ?? fallback) as `0x${string}`;
-const env = (k: string) => (process.env[k] ?? ZERO) as `0x${string}`;
+const addr = (value: string | undefined, fallback: string = ZERO) => (value || fallback) as `0x${string}`;
 
 export const NETWORKS: Record<NetworkId, NetworkConfig> = {
   testnet: {
     id: "testnet",
     chain: arcTestnet,
-    contract: def("NEXT_PUBLIC_CONTRACT_TESTNET", "0x9A7a66fc35b9237FD88E7f9fccC82A830eF90Ade"),
+    contract: addr(process.env.NEXT_PUBLIC_CONTRACT_TESTNET, "0x9A7a66fc35b9237FD88E7f9fccC82A830eF90Ade"),
     verifiers: {
-      preimage: def("NEXT_PUBLIC_PREIMAGE_TESTNET", "0x8bCa2402420198103d709e2777A4Ca4620f4B9Ee"),
-      backdoor: def("NEXT_PUBLIC_BACKDOOR_TESTNET", "0x8F19eCab548AC6c0A3b673a99EDb37eC7F8638ff"),
-      target: def("NEXT_PUBLIC_TARGET_TESTNET", "0x78bB16fCca4374FE19B23C1a02258a7eC754f39C"),
+      preimage: addr(process.env.NEXT_PUBLIC_PREIMAGE_TESTNET, "0x8bCa2402420198103d709e2777A4Ca4620f4B9Ee"),
+      backdoor: addr(process.env.NEXT_PUBLIC_BACKDOOR_TESTNET, "0x8F19eCab548AC6c0A3b673a99EDb37eC7F8638ff"),
+      target: addr(process.env.NEXT_PUBLIC_TARGET_TESTNET, "0x78bB16fCca4374FE19B23C1a02258a7eC754f39C"),
     },
     label: "Arc Testnet",
     short: "Testnet",
     live: false,
   },
+  local: {
+    id: "local",
+    chain: arcLocal,
+    contract: addr(process.env.NEXT_PUBLIC_CONTRACT_LOCAL),
+    verifiers: {
+      preimage: addr(process.env.NEXT_PUBLIC_PREIMAGE_LOCAL),
+      backdoor: addr(process.env.NEXT_PUBLIC_BACKDOOR_LOCAL),
+      target: addr(process.env.NEXT_PUBLIC_TARGET_LOCAL),
+    },
+    label: "Local",
+    short: "Local",
+    live: false,
+  },
   mainnet: {
     id: "mainnet",
     chain: arcMainnet,
-    contract: env("NEXT_PUBLIC_CONTRACT_MAINNET"),
+    contract: addr(process.env.NEXT_PUBLIC_CONTRACT_MAINNET),
     verifiers: {
-      preimage: env("NEXT_PUBLIC_PREIMAGE_MAINNET"),
-      backdoor: env("NEXT_PUBLIC_BACKDOOR_MAINNET"),
-      target: env("NEXT_PUBLIC_TARGET_MAINNET"),
+      preimage: addr(process.env.NEXT_PUBLIC_PREIMAGE_MAINNET),
+      backdoor: addr(process.env.NEXT_PUBLIC_BACKDOOR_MAINNET),
+      target: addr(process.env.NEXT_PUBLIC_TARGET_MAINNET),
     },
     label: "Arc Mainnet",
     short: "Mainnet",
@@ -78,7 +112,7 @@ export const NETWORKS: Record<NetworkId, NetworkConfig> = {
 };
 
 // Safe default: testnet, so nobody spends real money by accident.
-export const DEFAULT_NETWORK: NetworkId = "testnet";
+export const DEFAULT_NETWORK: NetworkId = DEV_LOCAL ? "local" : "testnet";
 
 export function explorerTxUrl(chain: Chain, hash: string) {
   return `${chain.blockExplorers?.default.url}/tx/${hash}`;
