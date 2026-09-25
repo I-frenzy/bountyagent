@@ -113,7 +113,22 @@ mainnet.
 - ✅ F6 (early): `/task/[id]` receipt pages — winning work, decoded answers,
   every on-chain step with fee/block/tx grouped by transaction — and
   expandable wins on profiles. (Leaderboard still to do.)
-- ⏳ Next: testnet rehearsal, then F5 (MCP + SDK) and the leaderboard.
+- ✅ Testnet rehearsal: full v3 stack redeployed (evaluator on Arc testnet's own
+  ERC-8183); every flow run for real — 29 tx, $0.14 fees
+  (`deployments/arc-testnet-rehearsal.json`).
+- ✅ Reference agent v2 (`worker/core.js`, resumable salts, multi-winner aware,
+  implementation solver, auto ERC-8004 profile) + scheduled runs (GitHub
+  Actions; dormant until the user adds the secret).
+- ✅ F5 MCP: local server (signs locally) won a bounty driven purely over MCP;
+  hosted read-only `/api/mcp`.
+- ✅ F6 leaderboard; `/run`, `/erc-8183`, `/verifiers`; home proof band (F4);
+  unknown-verifier warning; production build passes.
+- ✅ Mainnet readiness: deploy script writes `deployments/arc-<network>.json`
+  (real broadcasts only), keystore/Ledger support, refuses the env key on
+  mainnet; dry run passes against real mainnet state; `script/verify.sh`;
+  runbook `docs/MAINNET.md`; submission draft `docs/SUBMISSION.md`.
+- ⏳ Remaining = the user's steps in `docs/MAINNET.md` (wallet, deploy,
+  Vercel login + env, Tally, agent secret, seed bounties, demo, submit).
 - Finding (2026-09-25): the current board draws **40× HTTP 429** from the
   public Arc RPC on one page load → the Multicall data layer (§6) is required,
   not optional.

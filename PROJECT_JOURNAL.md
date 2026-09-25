@@ -23,13 +23,18 @@ the repo — can get fully oriented without re-deriving any of it.
 - **Whose idea:** the user's own — supplied as a PDF pitch (`bounty_agent.pdf`)
   describing a Fiverr/Upwork-for-AI-agents concept. Everything downstream (the
   trustless pivot, the CTF demo, the architecture) was built from that seed.
-- **Live right now:**
-  - Repo: **https://github.com/I-frenzy/bountyagent** (public)
-  - dApp: **https://bountyagent.vercel.app** (Vercel, `ifrenzys-projects`)
-  - Contracts: **Arc testnet (chain 5042002)** — see §6 for addresses
-  - Not yet on Arc **mainnet** (chain 5042) — that's the main remaining step
-- **What's left:** mainnet deploy → register on the Tally provenance registry
-  → DoraHacks submission. See §8.
+- **Live right now (2026-09-25):**
+  - Repo: **https://github.com/I-frenzy/bountyagent** (public, CI green)
+  - dApp: **https://bountyagent.vercel.app** (Vercel, `ifrenzys-projects`) —
+    the *deployed* site is still the old build; the new one builds cleanly and
+    needs `vercel login && vercel --prod` (CLI login expired, see §7)
+  - Contracts: v3 stack on **Arc testnet**, every flow rehearsed for real —
+    `deployments/arc-testnet.json` / `-rehearsal.json`
+  - Mainnet: runbook ready (`docs/MAINNET.md`), dry-run passes against real
+    mainnet state; waiting on the user's funded wallet
+- **What's left:** the user's steps in `docs/MAINNET.md` (fund, deploy, verify,
+  rehearse, Vercel env + deploy, Tally, agent secret, seed bounties), then the
+  DoraHacks submission from `docs/SUBMISSION.md`. See §8.
 
 ---
 
@@ -225,6 +230,76 @@ Both fixes are committed and pushed; the live site picked up the new
 on-chain data automatically (no redeploy needed for the worker fix — only the
 data changed, not the frontend code).
 
+### 3.8 — Re-audit, research, and the pivot to "evaluator" (2026-09-24/25)
+A fresh read of the contract found the **H-1 lockup was still reachable**: the
+UI defaulted to no deadline, and with no deadline one junk submission blocked
+`cancelTask` forever. Deadlines became mandatory (10 min–30 days), with a
+15-minute reveal grace so a creator can't race a solver who committed in time.
+
+Research then reshaped the plan: Arc mainnet went live Sep 16; Arc recommends
+**ERC-8183** for agent jobs, whose evaluator is explicitly *trusted*; **ERC-8004**
+registries are live on Arc mainnet. Positioning (user-approved): BountyAgent is
+**the trustless evaluator for Arc's agent economy**, not a rival marketplace.
+The plan lives in `ROADMAP.md`; the user added **multi-winner bounties** and
+**People mode** (keep the escrow — pay-later boards let posters never pay),
+then **profiles with X/links**, **link previews**, and **clickable wins**.
+
+### 3.9 — Contract v3 and the new primitives
+- **v3:** reward kept after payout (the UI no longer needs event scans),
+  `createdBlock`/`settledBlock`/`firstPaidBlock` recorded (receipts read exact
+  blocks — no indexer), beta caps, custom errors, transient reentrancy guard,
+  solc 0.8.30 / Cancun (Arc runs it — confirmed on testnet).
+- **Implementation bounties (`TestVectorVerifier`):** pay for deployed code
+  that matches a reference on fixed + fresh random inputs within a gas budget.
+  Two design catches: (1) fresh inputs from the *previous* block could be
+  ground for free by simulation — so the engine now passes `commitBlock` and
+  inputs come from `blockhash(commitBlock + 1)`; (2) no factory needed — the
+  solver commits to its contract's *predicted* address, then deploys, then
+  reveals. Candidates must be pure (bytecode opcode scan).
+- **`VerifierEvaluator` (ERC-8183):** Arc testnet runs the **ERC's reference
+  `AgenticCommerce`**, not `erc-8183/base-contracts` (layout checked on-chain),
+  so that's what we target and vendor (CC0). Its admin can set fees to 100% and
+  upgrade → our mainnet instance renounces every role at deploy.
+- **Multi-winner:** equal shares; anti-copy rule — only commits from a block
+  *before* the first payout can win (mutation-tested: removing it lets a copier
+  win).
+- **ERC-8004:** `linkAgent`; on every payout the engine writes feedback *from
+  its own address* (verified/curated tags), gas-capped and wrapped so it can
+  never block a payout, and a starved call reverts rather than silently dropping
+  the record. 9 fork tests against the real mainnet registries.
+
+### 3.10 — Security pass and CI
+CI runs Foundry tests (incl. mainnet-fork tests), coverage, Slither and Aderyn
+on every push (Aderyn doesn't run on Windows; Slither needs Python — GitHub
+Actions runs both for free). Every High/Medium triaged in `SECURITY.md`; one
+real fix (events before payouts). 146 tests; branch coverage engine 98%,
+evaluator and implementation verifier 100%.
+
+### 3.11 — The web, rebuilt around people and proof
+People mode (submit from the page, audience labels, "pay each winner × N",
+finish early, USDC guide); ERC-8004 profiles (name, bio, person/agent, X /
+web / GitHub / Farcaster — https-only, rebuilt from handles); link previews via
+an SSRF-hardened `/api/preview` (X and YouTube via oEmbed; an IPv4-in-IPv6
+bypass was found and closed); `/task/[id]` receipts (winning work, decoded
+answers, every step with fee/block/tx grouped by transaction); expandable wins
+on profiles; leaderboard; `/run`, `/erc-8183`, `/verifiers`; a proof band on
+the home page. Bugs caught by testing in a real browser against local forks and
+testnet: mainnet addresses could never load (`process.env[name]` isn't inlined
+by Next.js), a phone-width header overflow, and a load race that could show the
+previous network's data.
+
+### 3.12 — Testnet rehearsal and the agent side
+The full stack was redeployed on testnet with the evaluator plugged into **Arc
+testnet's own ERC-8183 contract**, and `worker/rehearsal.js` ran every flow for
+real: 29 transactions, $0.14 total fees — including ERC-8183 job #186717
+completed with **no human evaluator** and an implementation bounty won by
+deploying at a pre-committed address and passing 19 on-chain tests. The
+reference agent was rebuilt (`worker/core.js`: resumable deterministic salts,
+multi-winner aware, skips people-labelled and dust bounties, auto-creates its
+ERC-8004 profile), gained a scheduled mode (GitHub Actions, dormant until the
+user adds the key as a secret), and an **MCP server**: an agent driven only
+over MCP found a bounty, checked a wrong and a right answer for free, and won.
+
 ---
 
 ## 4. Why the architecture is shaped this way (decision log)
@@ -249,20 +324,35 @@ data changed, not the frontend code).
   already been through one deploy cycle's worth of gotchas (Arc's 18-decimal
   native-gas view, RPC quirks, wagmi avoidance), so reusing it removed a whole
   category of risk from a new build.
-- **A recent-window + cached event scan, not a full-history `getLogs`:** Arc's
-  testnet RPC caps `eth_getLogs` to a small block range, so the frontend
-  can't just scan from genesis for `TaskCreated` (this failed loudly during
-  the design revamp, showing `0.00` for settled bounties). The fix combines a
-  cheap recent-block scan with a `localStorage` cache seeded from live reads,
-  so it degrades gracefully rather than lying about the amount.
+- **Read state, not history:** Arc's RPC caps `eth_getLogs` ranges. v1 worked
+  around it with a recent-window scan + localStorage cache; v3 removes the need:
+  the full reward and winners stay in storage (read via Multicall3), and the
+  engine records the exact blocks of creation and payout, so receipts fetch
+  logs from those few blocks only — no indexer.
+- **Evaluator, not marketplace:** ERC-8183 already defines jobs and escrow;
+  what it lacks is a trustless evaluator. Plugging into Arc's own standard is
+  worth more than competing with it.
+- **People mode keeps the escrow:** a pay-later model would drop the one
+  guarantee a contract adds (the money exists) and bring back "the poster
+  never paid".
+- **Profiles on ERC-8004, fully on-chain:** the registration file is a base64
+  data URI (the standard's recommendation) — no IPFS or server to go down —
+  and only data URIs are read, so the browser never fetches arbitrary URLs.
+- **Reputation written by the engine:** feedback filtered by the engine's
+  address is a record no review can fake; the leaderboard adds distinct
+  posters to blunt self-dealing.
 
 ---
 
 ## 5. What's real vs. what's still a claim
 
-**Proven on-chain, reproducibly:**
-- Verified-mode auto-settlement with zero human involvement (backdoor CTF,
-  preimage).
+**Proven on-chain, reproducibly** (testnet rehearsal, `deployments/arc-testnet-rehearsal.json`):
+- Code-checked auto-settlement with zero human involvement (backdoor CTF,
+  preimage, and an implementation bounty passing 19 on-chain tests).
+- An ERC-8183 job on Arc testnet's own contract completed by `VerifierEvaluator`.
+- Wins written to the real ERC-8004 reputation registry by the engine.
+- Multi-winner payouts and early finalize with exact refunds.
+- An AI agent winning a bounty purely over MCP.
 - Front-running resistance (tested both attack shapes: no prior commit, and
   same-block commit+reveal).
 - Curated submit → validator payout.
@@ -273,22 +363,29 @@ data changed, not the frontend code).
 **Still honest limitations (stated in the README, not hidden):**
 - Curated mode trusts its validator; the timeout bounds the downside, it
   doesn't remove the trust.
-- Only two verifier templates exist so far (preimage, backdoor-CTF) — a real
-  product would need more verifier types or a way for creators to supply
-  their own safely.
-- No agent reputation/identity layer yet (the wider industry is converging on
-  standards like ERC-8004 for this — noted as a roadmap item, not built).
+- Three verifier templates; creators can bring their own, but a broken one can
+  make a bounty unwinnable (the UI marks unknown verifiers).
+- The implementation verifier is property testing, not proof.
+- Reputation can be wash-traded by a poster paying their own alt (mitigated by
+  "distinct posters", not prevented).
+- Not yet on mainnet at the time of writing.
 
 ---
 
 ## 6. Live addresses & links (Arc testnet, chain 5042002)
 
+Current (v3, 2026-09-25) — full list in `deployments/arc-testnet.json`:
+
 | | |
 |---|---|
-| BountyEngine | `0x9A7a66fc35b9237FD88E7f9fccC82A830eF90Ade` |
-| PreimageVerifier | `0x8bCa2402420198103d709e2777A4Ca4620f4B9Ee` |
-| BackdoorVerifier | `0x8F19eCab548AC6c0A3b673a99EDb37eC7F8638ff` |
-| VulnerableTarget | `0x78bB16fCca4374FE19B23C1a02258a7eC754f39C` |
+| BountyEngine | `0x6f525E678aEf9088c0b5eA227FAaed850E206D08` |
+| TestVectorVerifier | `0x1952Bb6EebbA7D029EA3cf3e8427afA31dC1911A` |
+| VerifierEvaluator (ERC-8183) | `0x382B40F21c4A278a2e7d156d6310D7389ca71C58` → Arc's AgenticCommerce `0x0747…4583` |
+| ERC-8004 Identity / Reputation (testnet) | `0x8004A818…BD9e` / `0x8004B663…8713` |
+| ERC-8004 Identity / Reputation (mainnet) | `0x8004A169…a432` / `0x8004BAa1…9b63` |
+| Reference agent profile | ERC-8004 #896857 (testnet) |
+
+The v1 engine (`0x9A7a…0Ade`) and its verifiers are superseded.
 | Repo | https://github.com/I-frenzy/bountyagent |
 | Live dApp | https://bountyagent.vercel.app |
 | Explorer | https://explorer.testnet.arc.io |
@@ -323,22 +420,38 @@ key; **rotate it** when convenient regardless.
 - The public Arc RPC rate-limits hard (HTTP 429): the pre-v3 board, which
   makes several calls per task, drew 40× 429s on a single page load. Batch
   reads through Multicall3.
+- **On a fork of Arc mainnet, anvil's well-known test accounts carry EIP-7702
+  delegations** (sweeper bots): ERC-8004 `_safeMint` rejects them. Clear with
+  `cast rpc anvil_setCode <addr> 0x` on the fork.
+- **Vercel CLI login has expired** on this machine; `vercel whoami` hangs.
+  Needs the user: `vercel login`, then `vercel --prod` from `web/`.
+- **Arc's explorer is Blockscout** (verify with `--verifier blockscout`, no
+  key) and rate-limits per IP for hours after bursts — `script/verify.sh`
+  skips already-verified contracts so it can simply be rerun.
+- `npx` can fail with `ECOMPROMISED` (its lock timer expires on this slow
+  network); `npm install --prefix <dir>` avoids the lock. Aderyn has no
+  Windows build — it runs in CI.
+- `forge script` dry runs used to write `deployments/*.json`; the script now
+  writes only on a real broadcast. And `forge` auto-loads `.env` (the burned
+  testnet key) — the deploy script refuses an env key on mainnet by default.
 
 ---
 
 ## 8. What's left
 
-1. **Arc mainnet deploy** (chain 5042) of the same four contracts, from the
-   user's own owner-attributable wallet (as with the other two entries) —
-   gated on that wallet being funded with real USDC.
-2. **Register on the Tally provenance registry** so the deployment shows
-   `OWNER_PROVEN`, matching the other two entries' pattern.
-3. **DoraHacks submission** — the recurring BUIDL form (project name,
-   contact, builder profiles, live deployment link, mainnet contract/tx,
-   public repo, a tight two-sentence pitch, "what does it use Arc for,"
-   deployed-before/prior-grant questions). Draft-ready material already
-   exists in this journal and the README; needs the mainnet address before
-   it can be filled in for real.
+All code for the grant is built, tested and rehearsed. What remains needs the
+user's wallet or accounts — step by step in **`docs/MAINNET.md`**:
+
+1. Fund a deployer wallet (~$25 USDC) and a new agent hot wallet (~$2) on Arc mainnet.
+2. Deploy with a keystore/Ledger (dry run first), then `script/verify.sh mainnet`.
+3. Mainnet rehearsal with tiny amounts (`worker/rehearsal.js`, `ARC_NETWORK=mainnet`).
+4. Vercel: add the `NEXT_PUBLIC_*_MAINNET` env vars, `vercel login`, `vercel --prod`.
+5. Tally registration from the deployer wallet.
+6. GitHub secret `WORKER_PRIVATE_KEY` (+ variable `ARC_NETWORK=mainnet`) to
+   switch on the scheduled reference agent. Rotate the Gemini key.
+7. Seed 10–15 launch bounties; record the demo video (script in
+   `docs/SUBMISSION.md`); submit on DoraHacks before **Oct 14** (aim for Oct 12).
+8. Also: `script/verify.sh testnet` once the explorer's rate limit resets.
 
 ---
 
