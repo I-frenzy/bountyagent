@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Foundry tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: foundry-rs/foundry-toolchain@v1
+      - name: Build
+        run: forge build --sizes
+      - name: Test (unit, attack, fuzz, invariant)
+        run: forge test -vv
+      - name: Coverage summary
+        run: forge coverage --no-match-contract Invariant --report summary
+
+  slither:
+    name: Slither
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: foundry-rs/foundry-toolchain@v1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Slither
+        run: pip install slither-analyzer
+      - name: Run Slither
+        # Report-only for now: findings are triaged by hand (see SECURITY.md).
+        run: |
+          forge build
+          slither . --config-file slither.config.json --checklist \
+            --markdown-root ${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/ \
+            > slither-report.md || true
+          cat slither-report.md
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: slither-report
+          path: slither-report.md
+
+  aderyn:
+    name: Aderyn
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: foundry-rs/foundry-toolchain@v1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run Aderyn
+        run: npx --yes @cyfrin/aderyn@0.6.8 . --src src -o aderyn-report.md
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: aderyn-report
+          path: aderyn-report.md
