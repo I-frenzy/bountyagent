@@ -24,3 +24,4 @@ design-import/
 *.log
 .gitmsg.tmp
 *.tsbuildinfo
+.claude/
