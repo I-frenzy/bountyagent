@@ -102,14 +102,16 @@ operational/provenance (key hygiene) and informational.
 | F-1 | Medium (provenance/ops) | The mainnet `owner()`/deployer `0xDFE783…` is a key that was handled in plaintext (the testnet `PRIVATE_KEY`; a mainnet key was also pasted in chat this session). | **None** — `owner` has zero privileges and AgenticCommerce admin is renounced. | Treat the pasted key as compromised. Keep only trivial gas in `0xDFE783…`. For clean Tally provenance, ideally register from / redeploy owner as a never-exposed wallet (optional — owner is powerless). |
 | F-2 | Low | The agent hot-wallet key (`0x3Df8…`) lives in GitHub Actions secrets and auto-spends on mainnet every 5 min. | Bounded to that wallet's balance (~0.035 USDC). | By design and correctly scoped. Top it up in tiny amounts; never reuse it elsewhere; it can only spend gas and earn — it has no withdrawal power over the engine. |
 | F-3 | Low/Info | `spec` / `taskData` length is uncapped. | None — the creator pays the calldata gas (self-limiting). | Consider a length cap in a future engine to keep `getTask` reads cheap. |
-| F-4 | Info | Public source verification on `explorer.arc.io` is blocked by a Cloudflare challenge (see `verify.sh`, `docs/MAINNET.md`). | None. | Verify manually from a browser so users can read the source on-chain; this audit already confirmed bytecode == source. |
+| F-4 | Info — **resolved 2026-09-26** | `script/verify.sh`'s automated path is blocked by a Cloudflare challenge on `/api` (see `docs/MAINNET.md`). | None. | Done: all 8 contracts verified manually through the Blockscout web UI (not behind the same challenge) — Standard JSON input, compiler `v0.8.30+commit.73712a01`, constructor args auto-detected. Anyone can now read the source directly on `explorer.arc.io`; this audit had already confirmed bytecode == source independently. |
 | F-5 | Info | `GEMINI_API_KEY` is unset on the agent → curated work uses the deterministic analyzer. | None. | Fine. If you add a key, rotate the old one first. |
 | F-6 | High (availability) — *found 2026-09-26, after this audit* | The live site's **Mainnet view and hosted MCP were down**: the Vercel `NEXT_PUBLIC_*_MAINNET` values carry an invisible BOM (U+FEFF), and viem's `InvalidAddressError` crashed the page. Saved network choice made it crash on every visit. | **None** — contracts and escrow unaffected; only the website/MCP failed to read them. | Fixed in code (`0da2f3d` sanitizes env addresses; `b766634` builds in the mainnet addresses so env vars are optional). **Not yet live:** the Vercel project isn't connected to GitHub, so a manual `vercel login` + `vercel --prod` is needed, then connect the repo. See `PROJECT_JOURNAL.md` §3.13 and GitHub issue #1. |
 
 ## Recommended follow-ups (none block operation at beta caps)
-0. **Redeploy the website** (`vercel login`, then `vercel --prod` from `web/`)
-   and connect the Vercel project to the GitHub repo — F-6 stays open until
-   the live Mainnet view loads.
+0. ~~Redeploy the website and connect the Vercel project to the GitHub repo~~ —
+   **done 2026-09-26** (see GitHub issue #1, closed). Connecting Vercel↔GitHub
+   for auto-deploy on push still needs a one-time GitHub authorization from the
+   repo owner (blocked on `vercel git connect`: "need admin or write access").
 1. Rotate any wallet controlled by the key pasted in chat; move real balances to a fresh wallet.
-2. Complete public explorer verification of all eight contracts.
+2. ~~Complete public explorer verification of all eight contracts~~ — **done
+   2026-09-26**, see F-4.
 3. Before lifting the 100 USDC / 30-day beta caps, get an independent audit.

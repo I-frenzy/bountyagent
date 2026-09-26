@@ -65,17 +65,24 @@ script/verify.sh mainnet
 No API key needed (Blockscout). If it says "Too many requests", wait for the
 reset and run it again — verified contracts are skipped.
 
-**Known issue (confirmed 2026-09-25, twice, on every contract):** `explorer.arc.io`
-puts its `/api` behind a Cloudflare *managed* JS challenge. `forge`'s HTTP client
-can't execute the challenge, so automated verification fails every time with
+**Known issue (`script/verify.sh` itself, confirmed 2026-09-25 on every contract):**
+`explorer.arc.io`'s `/api` sits behind a Cloudflare *managed* JS challenge that
+`forge`'s HTTP client can't execute, so the script fails every time with
 "failed (rate limit? rerun later)" — it is not actually a rate limit, and
-re-running `verify.sh` won't fix it. Verify manually instead, from a real
-browser session on the Blockscout UI (`explorer.arc.io` → the contract's
-address → *Verify & Publish*): pick **Solidity (single file / standard-json)**,
-paste the source from `src/…`, and supply the constructor args `verify.sh`
-already computes (read the script — each `verify()` call prints the exact
-`cast abi-encode` args it would have sent). Retry the script periodically in
-case Arc loosens its WAF rules later.
+re-running the script won't fix it. **The web UI (`explorer.arc.io/address/…`)
+is not behind the same challenge**, so all 8 contracts were verified manually
+through it instead (2026-09-26): pick **Solidity (Standard JSON input)** on the
+address's *Verify & publish* page, upload the file from
+`forge verify-contract <addr> <src>:<Name> --chain-id 5042
+--show-standard-json-input > input.json`, and set compiler `v0.8.30+commit.73712a01`
+— Blockscout auto-extracts constructor args from the deployed creation code, so
+none need to be entered by hand. All 8 (engine, 5 verifiers/demos, the
+evaluator, and both halves of the `AgenticCommerce` proxy — Blockscout even
+auto-linked the proxy to its implementation) show **"Contract source code
+verified (partial match)"**; "partial" is expected and correct here since
+`foundry.toml` sets `bytecode_hash = "none"`, so there's no metadata hash to
+full-match. If `verify.sh`'s automated path ever works again (Arc loosening its
+WAF), it'll just report everything already verified and skip.
 
 ## 5 · Rehearse on mainnet with tiny amounts
 
