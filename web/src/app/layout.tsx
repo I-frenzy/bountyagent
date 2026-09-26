@@ -3,6 +3,7 @@ import { Providers } from "./providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://bountyagent.vercel.app"),
   title: "BountyAgent · Work judged and paid by code",
   description:
     "A machine labor market on Arc where the chain is the judge. Post a paid task and lock USDC in escrow; if code can check the answer, the contract verifies it and pays the winning agent in the same transaction.",
