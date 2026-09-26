@@ -1,10 +1,16 @@
-# DoraHacks submission — Arc Microgrants (draft)
+# DoraHacks submission — Arc Microgrants (ready to submit)
 
 Deadline: **Oct 14, 2026, 23:59 ET** (rolling review, decisions by Oct 21).
-Fill the `⟨…⟩` placeholders after the mainnet deploy (`docs/MAINNET.md`).
 
-> Before submitting, check the current Arc Microgrants rules on multiple
-> entries per builder, and disclose related entries if the rules ask for it.
+> Confirmed against the live rules (dorahacks.io/hackathon/arc-microgrants,
+> checked 2026-09-26): **"teams can submit more than one distinct project"** —
+> so Tally, SplitPay and BountyAgent (three genuinely different primitives) are
+> all fine as separate entries, no disclosure conflict. The one real
+> exclusion is "work already funded by a Circle or Arc program" — none of the
+> three have been funded yet, so "No" is accurate as of this writing. Also
+> required: **project must be deployed and working on Arc mainnet at
+> submission time** (✅ done) and a **public builder profile** (GitHub/X/
+> Farcaster) — pick one to list below.
 
 ---
 
@@ -34,14 +40,20 @@ ERC-8004 reputation.
 
 **Live deployment:** https://bountyagent.vercel.app
 
-**Mainnet contracts (chain 5042):**
-- BountyEngine — ⟨address⟩ (explorer: https://explorer.arc.io/address/⟨…⟩)
-- VerifierEvaluator (ERC-8183) — ⟨address⟩
-- AgenticCommerce (ERC-8183 reference, admin renounced) — ⟨address⟩
-- TestVectorVerifier / PreimageVerifier / BackdoorVerifier — ⟨addresses⟩
-- A mainnet transaction: ⟨tx link — e.g. an auto-paid reveal⟩
+**Mainnet contracts (chain 5042), all source-verified on Blockscout:**
+- BountyEngine — [`0x9A7a66fc35b9237FD88E7f9fccC82A830eF90Ade`](https://explorer.arc.io/address/0x9A7a66fc35b9237FD88E7f9fccC82A830eF90Ade)
+- VerifierEvaluator (ERC-8183) — [`0xdBAdd9Ec8EE73563c2e9E5B781f6b8F438c4FC4E`](https://explorer.arc.io/address/0xdBAdd9Ec8EE73563c2e9E5B781f6b8F438c4FC4E)
+- AgenticCommerce (ERC-8183 reference, admin renounced) — [`0x6e5fBdaf9444d60A40Dd4B35960A594EBCc6343A`](https://explorer.arc.io/address/0x6e5fBdaf9444d60A40Dd4B35960A594EBCc6343A) (proxy) → [`0x52fE87CfA139e21301eAdA0822CE7420D64D9148`](https://explorer.arc.io/address/0x52fE87CfA139e21301eAdA0822CE7420D64D9148) (implementation)
+- TestVectorVerifier — [`0x78bB16fCca4374FE19B23C1a02258a7eC754f39C`](https://explorer.arc.io/address/0x78bB16fCca4374FE19B23C1a02258a7eC754f39C)
+- PreimageVerifier — [`0x8bCa2402420198103d709e2777A4Ca4620f4B9Ee`](https://explorer.arc.io/address/0x8bCa2402420198103d709e2777A4Ca4620f4B9Ee)
+- BackdoorVerifier — [`0x8F19eCab548AC6c0A3b673a99EDb37eC7F8638ff`](https://explorer.arc.io/address/0x8F19eCab548AC6c0A3b673a99EDb37eC7F8638ff)
+- A mainnet transaction — an autonomous, hosted (GitHub Actions) agent auto-paid a live bounty with zero human approval:
+  [`0x3d23d7e26581b6d9bdc348fd6d841d36a42511678c206b05eba703747b8f0b97`](https://explorer.arc.io/tx/0x3d23d7e26581b6d9bdc348fd6d841d36a42511678c206b05eba703747b8f0b97)
 
 **Public repo:** https://github.com/I-frenzy/bountyagent
+
+**Logo/thumbnail:** `web/public/logo.png` (also `logo.svg`) — the Ledger mark: a
+square split in two, one half filled (settled), one half empty (open).
 
 **What it does (longer description):**
 
@@ -87,8 +99,9 @@ pooled bounties, EURC bounties via StableFX, cross-chain funding via CCTP /
 Gateway, sealed submissions for poster-decided work, ZK verifiers, Circle Agent
 Wallets, and "ratchet" bounties that pay each improvement.
 
-**Deployed before / prior grants:** ⟨answer honestly — e.g. "Not previously
-funded by a Circle or Arc program."⟩
+**Deployed before / prior grants:** Not previously funded by a Circle or Arc
+program. *(Confirm before submitting — this is your attestation, not mine to
+make on your behalf.)*
 
 ---
 

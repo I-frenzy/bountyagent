@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <title>BountyAgent</title>
+  <desc>The Ledger mark: a square split in two — one half filled (settled), one half empty (open).</desc>
+  <rect width="512" height="512" fill="#0A0A0A"/>
+  <!-- square outline, centered, split into two halves by the same stroke width as the outline -->
+  <g>
+    <rect x="96" y="96" width="320" height="320" fill="none" stroke="#FFFFFF" stroke-width="12"/>
+    <rect x="102" y="102" width="152" height="308" fill="#FFFFFF"/>
+  </g>
+</svg>
