@@ -30,7 +30,7 @@ const DURATIONS = [
 const PREIMAGE_WORDS = ["orbit", "falcon", "matrix", "harbor", "zenith", "cobalt", "ember", "quartz"];
 
 const MAX_WINNERS = 50; // BountyEngine.MAX_WINNERS
-const MAX_TOTAL = 100; // BountyEngine.MAX_REWARD, in USDC
+const MAX_TOTAL = 100; // BountyEngine.MAX_REWARD, in the native coin
 
 type PresetAudience = "anyone" | "people" | "agents";
 const AUDIENCES: { k: PresetAudience; label: string }[] = [
@@ -46,7 +46,7 @@ const CURATED_PRESETS: { label: string; reward: string; spec: string; audience?:
     audience: "people",
     spec:
       "Translate this paragraph into natural, fluent French. No machine translation, please — it's for a product " +
-      "page.\n\n\"Post a task, lock USDC in escrow, and pay the people who do the work — instantly, on Arc.\"",
+      "page.\n\n\"Post a task, lock the reward in escrow, and pay the people who do the work, instantly.\"",
   },
   {
     label: "Feedback × 5",
@@ -98,7 +98,7 @@ const CURATED_PRESETS: { label: string; reward: string; spec: string; audience?:
 
 export function PostTask({ onPosted }: { onPosted: () => void }) {
   const { isConnected, wrongNetwork, address } = useWallet();
-  const { isLive, isContractConfigured, contract, verifiers, txUrl } = useNetwork();
+  const { isLive, isContractConfigured, contract, verifiers, txUrl, symbol } = useNetwork();
   const { push } = useToast();
   const tx = useTx();
 
@@ -183,7 +183,7 @@ export function PostTask({ onPosted }: { onPosted: () => void }) {
 
   useEffect(() => {
     if (tx.isSuccess && tx.hash) {
-      push({ kind: "success", msg: `Bounty posted — ${total} USDC locked in escrow.`, href: txUrl(tx.hash) });
+      push({ kind: "success", msg: `Bounty posted — ${total} ${symbol} locked in escrow.`, href: txUrl(tx.hash) });
       onPosted();
       tx.reset();
     }
@@ -226,7 +226,7 @@ export function PostTask({ onPosted }: { onPosted: () => void }) {
 
       <div className="flex items-baseline justify-between pt-0.5">
         <span className="text-2xl font-medium tracking-tight2 text-verdict">Post a bounty</span>
-        {isLive && <span className="font-mono text-[11px] font-medium uppercase tracking-wide3 text-verdict">Real USDC</span>}
+        {isLive && <span className="font-mono text-[11px] font-medium uppercase tracking-wide3 text-verdict">Real {symbol}</span>}
       </div>
 
       {/* mode switch */}
@@ -405,7 +405,7 @@ export function PostTask({ onPosted }: { onPosted: () => void }) {
         </div>
         <span className="text-[12.5px] leading-snug text-muted">
           {mode === "verified"
-            ? "After this, no new answers. Unclaimed USDC is reclaimable 15 min later."
+            ? `After this, no new answers. Unclaimed ${symbol} is reclaimable 15 min later.`
             : "After this, no new submissions. Anything you haven't paid out, you can reclaim."}
         </span>
       </div>
@@ -424,7 +424,7 @@ export function PostTask({ onPosted }: { onPosted: () => void }) {
         <div className="flex items-start gap-2.5 border border-verdict p-3">
           <span aria-hidden className="w-[18px] flex-none self-stretch hazard-thin" />
           <span className="text-[13px] leading-snug text-ink">
-            <span className="font-medium text-verdict">Mainnet: real USDC.</span> This locks {total} USDC.
+            <span className="font-medium text-verdict">Live network: real {symbol}.</span> This locks {total} {symbol}.
             Double-check the amount{mode === "curated" ? " and the validator" : ""}.
           </span>
         </div>
@@ -454,7 +454,7 @@ export function PostTask({ onPosted }: { onPosted: () => void }) {
             ) : (
               <>
                 <i className={isLive ? "ph-bold ph-warning" : "ph ph-lock-simple"} />
-                Lock {total} {isLive ? "real " : ""}USDC
+                Lock {total} {isLive ? "real " : ""}{symbol}
               </>
             )}
           </span>
@@ -489,6 +489,7 @@ function PayoutFields({
   winnersValid: boolean;
   compact?: boolean;
 }) {
+  const { symbol } = useNetwork();
   const kicker = "font-mono text-[11px] font-medium uppercase tracking-wide3 text-muted";
   const multi = winners !== "1";
   return (
@@ -506,7 +507,7 @@ function PayoutFields({
                 compact ? "text-[28px]" : "text-[44px] leading-none"
               }`}
             />
-            <span className="font-mono text-xs font-medium text-muted">USDC</span>
+            <span className="font-mono text-xs font-medium text-muted">{symbol}</span>
           </span>
         </label>
         <label className="flex flex-col gap-1.5">
@@ -528,12 +529,12 @@ function PayoutFields({
         <span className="text-[12.5px] text-ink">Winners must be between 1 and {MAX_WINNERS}.</span>
       ) : overCap ? (
         <span className="text-[12.5px] text-ink">
-          The total is {total} USDC. During the beta a bounty can lock at most {MAX_TOTAL} USDC.
+          The total is {total} {symbol}. During the beta a bounty can lock at most {MAX_TOTAL} {symbol}.
         </span>
       ) : (
         multi && (
           <span className="text-[12.5px] text-sub">
-            Locks <span className="tnum text-verdict">{total} USDC</span> in total. Anything you don&apos;t pay out comes
+            Locks <span className="tnum text-verdict">{total} {symbol}</span> in total. Anything you don&apos;t pay out comes
             back to you.
           </span>
         )

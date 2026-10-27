@@ -9,9 +9,20 @@ const MULTICALL3 = "0xcA11bde05977b3631167028862bE2a173976CA11" as const;
 export const DEV_LOCAL = process.env.NEXT_PUBLIC_DEV_LOCAL === "1";
 
 /**
- * Arc chains. nativeCurrency.decimals = 18 because USDC is Arc's native gas
- * asset in its 18-decimal view, so `parseEther` correctly encodes `msg.value`.
+ * Supported chains. Every chain settles in its native coin, in an 18-decimal view,
+ * so `parseEther` correctly encodes `msg.value`: USDC on Arc, BOT on BOT Chain.
  */
+export const botMainnet = defineChain({
+  id: 677,
+  name: "BOT Chain",
+  nativeCurrency: { name: "BOT", symbol: "BOT", decimals: 18 },
+  rpcUrls: { default: { http: ["https://rpc.botchain.ai"] } },
+  blockExplorers: {
+    default: { name: "BOTScan", url: "https://scan.botchain.ai" },
+  },
+  contracts: { multicall3: { address: MULTICALL3 } },
+});
+
 export const arcTestnet = defineChain({
   id: 5042002,
   name: "Arc Testnet",
@@ -44,7 +55,26 @@ export const arcLocal = defineChain({
   testnet: true,
 });
 
-export type NetworkId = "testnet" | "mainnet" | "local";
+export type NetworkId = "bot" | "arc" | "arc-testnet" | "local";
+
+// Earlier versions used "mainnet" and "testnet", which were both Arc. Keep them
+// working for saved choices and for MCP URLs that already carry ?network=.
+export function parseNetworkId(value: string | null | undefined): NetworkId | null {
+  switch (value) {
+    case "bot":
+      return "bot";
+    case "arc":
+    case "mainnet":
+      return "arc";
+    case "arc-testnet":
+    case "testnet":
+      return "arc-testnet";
+    case "local":
+      return DEV_LOCAL ? "local" : null;
+    default:
+      return null;
+  }
+}
 
 export type Extras = {
   testVector: `0x${string}`;
@@ -70,11 +100,13 @@ type NetworkConfig = {
   extras: Extras;
   label: string;
   short: string;
+  symbol: string; // native settlement coin
   live: boolean;
+  faucet?: string; // free test funds, testnets only
 };
 
-// Addresses. Env overrides win; testnet and mainnet fall back to the live deploys
-// (2026-09-25, deployments/arc-testnet.json and deployments/arc-mainnet.json).
+// Addresses. Env overrides win; each network falls back to its live deploy
+// (deployments/arc-testnet.json, arc-mainnet.json and bot-mainnet.json).
 // Each variable must be read as a literal `process.env.NEXT_PUBLIC_…` so Next.js
 // inlines it into the browser bundle — a dynamic `process.env[name]` lookup is
 // undefined client-side (it silently disabled every override before).
@@ -90,8 +122,31 @@ const addr = (value: string | undefined, fallback: string = ZERO) => {
 };
 
 export const NETWORKS: Record<NetworkId, NetworkConfig> = {
-  testnet: {
-    id: "testnet",
+  bot: {
+    id: "bot",
+    chain: botMainnet,
+    contract: addr(process.env.NEXT_PUBLIC_CONTRACT_BOT, "0x9A7a66fc35b9237FD88E7f9fccC82A830eF90Ade"),
+    verifiers: {
+      preimage: addr(process.env.NEXT_PUBLIC_PREIMAGE_BOT, "0x8bCa2402420198103d709e2777A4Ca4620f4B9Ee"),
+      backdoor: addr(process.env.NEXT_PUBLIC_BACKDOOR_BOT, "0x8F19eCab548AC6c0A3b673a99EDb37eC7F8638ff"),
+      target: addr(process.env.NEXT_PUBLIC_TARGET_BOT, "0x0f81a6fcC23bafed624Dc5F92A1F46F028204Ad7"),
+    },
+    // Not available on BOT Chain: the canonical ERC-8004 addresses hold stubs there.
+    erc8004: { identity: ZERO, reputation: ZERO },
+    extras: {
+      testVector: addr(process.env.NEXT_PUBLIC_TESTVECTOR_BOT, "0x78bB16fCca4374FE19B23C1a02258a7eC754f39C"),
+      popcountReference: addr(process.env.NEXT_PUBLIC_POPCOUNT_BOT, "0x6600FCb6904a27B6E8a4DA03c22cb5A0718d5e71"),
+      // The ERC-8183 module is not deployed on BOT Chain (no ERC-20 payment token).
+      evaluator: ZERO,
+      commerce: ZERO,
+    },
+    label: "BOT Chain",
+    short: "BOT",
+    symbol: "BOT",
+    live: true,
+  },
+  "arc-testnet": {
+    id: "arc-testnet",
     chain: arcTestnet,
     contract: addr(process.env.NEXT_PUBLIC_CONTRACT_TESTNET, "0x6f525E678aEf9088c0b5eA227FAaed850E206D08"),
     verifiers: {
@@ -110,8 +165,10 @@ export const NETWORKS: Record<NetworkId, NetworkConfig> = {
       commerce: addr(process.env.NEXT_PUBLIC_COMMERCE_TESTNET, "0x0747EEf0706327138c69792bF28Cd525089e4583"),
     },
     label: "Arc Testnet",
-    short: "Testnet",
+    short: "Arc Testnet",
+    symbol: "USDC",
     live: false,
+    faucet: "https://faucet.circle.com",
   },
   local: {
     id: "local",
@@ -134,10 +191,11 @@ export const NETWORKS: Record<NetworkId, NetworkConfig> = {
     },
     label: "Local",
     short: "Local",
+    symbol: "USDC",
     live: false,
   },
-  mainnet: {
-    id: "mainnet",
+  arc: {
+    id: "arc",
     chain: arcMainnet,
     contract: addr(process.env.NEXT_PUBLIC_CONTRACT_MAINNET, "0x9A7a66fc35b9237FD88E7f9fccC82A830eF90Ade"),
     verifiers: {
@@ -156,13 +214,18 @@ export const NETWORKS: Record<NetworkId, NetworkConfig> = {
       commerce: addr(process.env.NEXT_PUBLIC_COMMERCE_MAINNET, "0x6e5fBdaf9444d60A40Dd4B35960A594EBCc6343A"),
     },
     label: "Arc Mainnet",
-    short: "Mainnet",
+    short: "Arc",
+    symbol: "USDC",
     live: true,
   },
 };
 
-// Safe default: testnet, so nobody spends real money by accident.
-export const DEFAULT_NETWORK: NetworkId = DEV_LOCAL ? "local" : "testnet";
+// BOT Chain is the primary network. The picker and the red live-network badge make
+// it obvious that it moves real value.
+export const DEFAULT_NETWORK: NetworkId = DEV_LOCAL ? "local" : "bot";
+
+// Display order in the network picker.
+export const NETWORK_ORDER: NetworkId[] = ["bot", "arc", "arc-testnet"];
 
 export function explorerTxUrl(chain: Chain, hash: string) {
   return `${chain.blockExplorers?.default.url}/tx/${hash}`;

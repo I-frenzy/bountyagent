@@ -37,7 +37,7 @@ try {
 }
 
 export const CHAINS = {
-  testnet: defineChain({
+  "arc-testnet": defineChain({
     id: 5042002,
     name: "Arc Testnet",
     nativeCurrency: { name: "USD Coin", symbol: "USDC", decimals: 18 },
@@ -45,23 +45,37 @@ export const CHAINS = {
     blockExplorers: { default: { name: "Arc Explorer", url: "https://explorer.testnet.arc.io" } },
     testnet: true,
   }),
-  mainnet: defineChain({
+  arc: defineChain({
     id: 5042,
     name: "Arc",
     nativeCurrency: { name: "USD Coin", symbol: "USDC", decimals: 18 },
     rpcUrls: { default: { http: [process.env.ARC_MAINNET_RPC_URL || "https://rpc.mainnet.arc.io"] } },
     blockExplorers: { default: { name: "Arc Explorer", url: "https://explorer.arc.io" } },
   }),
+  bot: defineChain({
+    id: 677,
+    name: "BOT Chain",
+    nativeCurrency: { name: "BOT", symbol: "BOT", decimals: 18 },
+    rpcUrls: { default: { http: [process.env.BOT_RPC_URL || "https://rpc.botchain.ai"] } },
+    blockExplorers: { default: { name: "BOTScan", url: "https://scan.botchain.ai" } },
+  }),
 };
 
-export const NETWORK = (process.env.ARC_NETWORK || "testnet").toLowerCase();
+// NETWORK picks the chain: bot | arc | arc-testnet. ARC_NETWORK and the old values
+// mainnet / testnet (both Arc) still work, so existing agent setups keep running.
+const ALIASES = { mainnet: "arc", testnet: "arc-testnet" };
+const RAW_NETWORK = (process.env.NETWORK || process.env.ARC_NETWORK || "testnet").toLowerCase();
+const DEPLOYMENT_FILES = { "arc-testnet": "arc-testnet", arc: "arc-mainnet", bot: "bot-mainnet" };
+
+export const NETWORK = ALIASES[RAW_NETWORK] || RAW_NETWORK;
 export const chain = CHAINS[NETWORK];
-if (!chain) throw new Error(`unknown ARC_NETWORK "${NETWORK}"`);
+if (!chain) throw new Error(`unknown network "${RAW_NETWORK}" (use bot, arc or arc-testnet)`);
+const SYMBOL = chain.nativeCurrency.symbol;
 
 /** Contract address: CONTRACT_ADDRESS, else the deployments/ file for this network. */
 function defaultContract() {
   try {
-    const dep = JSON.parse(readFileSync(join(here, "..", "deployments", `arc-${NETWORK}.json`), "utf8"));
+    const dep = JSON.parse(readFileSync(join(here, "..", "deployments", `${DEPLOYMENT_FILES[NETWORK]}.json`), "utf8"));
     return dep.contracts.BountyEngine;
   } catch {
     return undefined;
@@ -73,8 +87,13 @@ if (!CONTRACT || !/^0x[0-9a-fA-F]{40}$/.test(CONTRACT)) throw new Error("Set CON
 /** Skip bounties whose per-winner share is below this, so dust bounties can't drain gas. */
 export const MIN_SHARE = parseEther(process.env.MIN_SHARE_USDC || "0.05");
 
+// ERC-8004 identity registry. None on BOT Chain: the canonical address holds a stub there.
 export const IDENTITY_REGISTRY =
-  NETWORK === "mainnet" ? "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432" : "0x8004A818BFB912233c491871b3d84c89A494BD9e";
+  NETWORK === "arc"
+    ? "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432"
+    : NETWORK === "arc-testnet"
+      ? "0x8004A818BFB912233c491871b3d84c89A494BD9e"
+      : null;
 
 const rawKey = process.env.WORKER_PRIVATE_KEY || process.env.AGENT_PRIVATE_KEY;
 export const account = rawKey ? privateKeyToAccount(rawKey.startsWith("0x") ? rawKey : `0x${rawKey}`) : null;
@@ -90,7 +109,7 @@ export const read = (functionName, args = []) =>
   publicClient.readContract({ address: CONTRACT, abi: BOUNTY_ENGINE_ABI, functionName, args });
 
 function needWallet() {
-  if (!account || !walletClient) throw new Error("Set WORKER_PRIVATE_KEY (a dedicated wallet holding a little USDC for gas).");
+  if (!account || !walletClient) throw new Error("Set WORKER_PRIVATE_KEY (a dedicated wallet holding a little of the native coin for gas).");
 }
 
 async function write(functionName, args, log = () => {}) {
@@ -178,7 +197,7 @@ export async function skipReason(id, t) {
   if (Number(t.status) !== STATUS.Open) return "not open";
   if (t.resolveDeadline > 0n && now() > t.resolveDeadline) return "past its deadline";
   const share = t.reward / BigInt(t.maxWinners || 1);
-  if (share < MIN_SHARE) return `share ${formatEther(share)} USDC is below MIN_SHARE`;
+  if (share < MIN_SHARE) return `share ${formatEther(share)} ${SYMBOL} is below MIN_SHARE`;
   const me = account.address.toLowerCase();
   if (t.creator.toLowerCase() === me) return "we posted it";
   if (await read("hasWon", [id, account.address])) return "already won";
@@ -216,7 +235,7 @@ export async function commitAndReveal(id, answer, { seedBlocks = 1, beforeReveal
   const before = await publicClient.getBalance({ address: account.address });
   const r = await write("revealAndClaim", [id, answer, salt], log);
   const after = await publicClient.getBalance({ address: account.address });
-  log(`  💰 net to agent (share − gas): ${formatEther(after - before)} USDC`);
+  log(`  💰 net to agent (share − gas): ${formatEther(after - before)} ${SYMBOL}`);
   return r;
 }
 
@@ -255,7 +274,7 @@ export async function work(id, t, log = console.log) {
   const why = await skipReason(id, t);
   if (why) return `skipped: ${why}`;
   const d = describe(id, t);
-  log(`\n▸ #${id} [${d.mode}] ${d.shareUsdc} USDC · ${d.brief.split("\n")[0].slice(0, 80)}`);
+  log(`\n▸ #${id} [${d.mode}] ${d.shareUsdc} ${SYMBOL} · ${d.brief.split("\n")[0].slice(0, 80)}`);
   if (d.mode === "curated") {
     const result = await doWork(t.spec);
     await submitWork(id, result, log);
@@ -288,6 +307,7 @@ export async function ensureProfile(log = console.log) {
     { type: "function", name: "register", stateMutability: "nonpayable", inputs: [{ name: "agentURI", type: "string" }], outputs: [{ type: "uint256" }] },
     { type: "event", name: "Registered", inputs: [{ name: "agentId", type: "uint256", indexed: true }, { name: "agentURI", type: "string", indexed: false }, { name: "owner", type: "address", indexed: true }] },
   ];
+  if (!IDENTITY_REGISTRY) throw new Error("ERC-8004 profiles are not available on this network.");
   const hash = await walletClient.writeContract({ address: IDENTITY_REGISTRY, abi, functionName: "register", args: [uri] });
   const r = await publicClient.waitForTransactionReceipt({ hash });
   const agentId = parseEventLogs({ abi, eventName: "Registered", logs: r.logs })[0].args.agentId;

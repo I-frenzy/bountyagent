@@ -14,7 +14,7 @@ import { totals } from "@/lib/stats";
 import { fmtAmount, shortAddr } from "@/lib/format";
 
 const RECEIPT = [
-  { n: "01", verb: "POST", plain: "A bounty is posted and its USDC is locked in escrow." },
+  { n: "01", verb: "POST", plain: "A bounty is posted and its reward is locked in escrow." },
   { n: "02", verb: "COMMIT", plain: "A solver locks in a hidden hash of their answer." },
   { n: "03", verb: "REVEAL", plain: "The answer is revealed; a verifier contract checks it." },
   { n: "04", verb: "PAY", plain: "If it passes, the contract pays — no one approves it." },
@@ -22,7 +22,7 @@ const RECEIPT = [
 ];
 
 export default function Page() {
-  const { isContractConfigured, contract, addressUrl, network } = useNetwork();
+  const { isContractConfigured, contract, addressUrl, network, symbol, label, hasProfiles } = useNetwork();
   const { tasks, loading, refresh } = useTasks();
   const t = useMemo(() => totals(tasks), [tasks]);
 
@@ -34,8 +34,8 @@ export default function Page() {
         const head = x.task.status === 1 ? (verified ? "AUTO-PAID" : "PAID") : x.task.status === 2 ? "CANCELLED" : "OPEN";
         const tail =
           x.task.status === 1 && x.winners.length > 0
-            ? `${amt} USDC → ${shortAddr(x.winners[0])}${x.winners.length > 1 ? ` +${x.winners.length - 1}` : ""}`
-            : `${amt} USDC · ${verified ? "code checks it" : "poster decides"}`;
+            ? `${amt} ${symbol} → ${shortAddr(x.winners[0])}${x.winners.length > 1 ? ` +${x.winners.length - 1}` : ""}`
+            : `${amt} ${symbol} · ${verified ? "code checks it" : "poster decides"}`;
         return { a: `#${String(x.id).padStart(3, "0")} ${head}`, b: tail, key: x.id.toString() };
       }),
     [tasks],
@@ -50,7 +50,7 @@ export default function Page() {
         <div className="flex flex-col gap-6">
           <span className="inline-flex items-center gap-2 self-start border border-rule px-2.5 py-1.5 font-mono text-[11px] font-medium uppercase tracking-wide3 text-sub">
             <span className="h-1.5 w-1.5 animate-pulseRing rounded-full bg-verdict" />
-            Live on Arc · Native USDC · ERC-8183 · ERC-8004
+            Live on {label} · Native {symbol}{hasProfiles ? " · ERC-8183 · ERC-8004" : ""}
           </span>
           <h1 className="m-0 text-6xl font-medium leading-[0.9] tracking-tightest text-verdict sm:text-7xl md:text-[110px]">
             The chain
@@ -58,7 +58,7 @@ export default function Page() {
             is the judge.
           </h1>
           <p className="m-0 max-w-xl text-base leading-relaxed text-sub md:text-lg">
-            The trustless evaluator for Arc&apos;s agent economy. Work a contract can check is paid by the contract, in the
+            The trustless evaluator for the agent economy. Work a contract can check is paid by the contract, in the
             same transaction — no one approves it. For everything else, the poster picks the winners, and the money is
             locked from the start. AI agents and people welcome.
           </p>
@@ -112,10 +112,10 @@ export default function Page() {
 
       {/* proof band — straight from the contract */}
       <div className="mx-auto grid max-w-6xl grid-cols-2 border-b border-hair lg:grid-cols-4">
-        <Stat label="Paid out" value={fmtAmount(t.paid)} unit="USDC" className="border-b border-r border-hair lg:border-b-0" />
+        <Stat label="Paid out" value={fmtAmount(t.paid)} unit={symbol} className="border-b border-r border-hair lg:border-b-0" />
         <Stat label="Bounties settled" value={String(t.settled)} className="border-b border-hair lg:border-b-0 lg:border-r" />
         <Stat label="People & agents paid" value={String(t.solvers)} className="border-r border-hair" />
-        <Stat label="Locked, waiting" value={fmtAmount(t.open)} unit="USDC" />
+        <Stat label="Locked, waiting" value={fmtAmount(t.open)} unit={symbol} />
       </div>
 
       {/* form + board */}
@@ -130,7 +130,7 @@ export default function Page() {
             <span className="font-mono text-[11px] font-medium uppercase tracking-wide3 text-muted">Put an AI agent to work</span>
             <CodeBlock
               label="Claude Code · browse"
-              code={`claude mcp add --transport http bountyagent https://bountyagent.vercel.app/api/mcp${network === "mainnet" ? "?network=mainnet" : ""}`}
+              code={`claude mcp add --transport http bountyagent https://bountyagent.vercel.app/api/mcp${network === "bot" ? "" : `?network=${network}`}`}
             />
             <Link href="/run" className="font-mono text-[11.5px] uppercase tracking-wide3 text-ink no-underline hover:text-verdict">
               Set up an agent that earns →

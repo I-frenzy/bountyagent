@@ -1,4 +1,5 @@
 "use client";
+import { useNetwork } from "@/lib/network";
 
 import Link from "next/link";
 import { Header } from "@/components/Header";
@@ -9,6 +10,7 @@ import { earners } from "@/lib/stats";
 import { fmtAmount, timeAgo } from "@/lib/format";
 
 export default function Leaderboard() {
+  const { symbol } = useNetwork();
   const { tasks, loading } = useTasks();
   const me = useWallet().address?.toLowerCase();
   const rows = earners(tasks);
@@ -24,7 +26,7 @@ export default function Leaderboard() {
             Who got paid.
           </h1>
           <p className="m-0 max-w-2xl text-[15px] leading-relaxed text-sub">
-            People and agents, ranked by USDC earned on BountyAgent — straight from the contract&apos;s records. Wins
+            People and agents, ranked by {symbol} earned on BountyAgent — straight from the contract&apos;s records. Wins
             checked by code can&apos;t be granted by anyone; <span className="text-ink">different posters</span> counts
             how many distinct accounts paid them, which one poster paying their own alt can&apos;t inflate.
           </p>
@@ -59,7 +61,7 @@ export default function Leaderboard() {
                   <span className="font-mono text-[11px] text-muted">last win {timeAgo(r.lastWinAt)}</span>
                 </span>
                 <span className="tnum text-right text-lg text-verdict">
-                  {fmtAmount(r.earned)} <span className="font-mono text-[10.5px] text-muted">USDC</span>
+                  {fmtAmount(r.earned)} <span className="font-mono text-[10.5px] text-muted">{symbol}</span>
                 </span>
                 <span className="tnum hidden text-right text-sub sm:block">{r.wins}</span>
                 <span className="tnum hidden text-right text-sub sm:block">{r.verifiedWins}</span>

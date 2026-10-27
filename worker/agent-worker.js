@@ -9,7 +9,7 @@
 //   node agent-worker.js          # watch forever
 //   node agent-worker.js --once   # one pass over open bounties, then exit
 //
-// Env (see .env.example): WORKER_PRIVATE_KEY, ARC_NETWORK, optional
+// Env (see .env.example): WORKER_PRIVATE_KEY, NETWORK (or ARC_NETWORK), optional
 // CONTRACT_ADDRESS, MIN_SHARE_USDC, AGENT_NAME, GEMINI_API_KEY.
 import { formatEther } from "viem";
 import { BOUNTY_ENGINE_ABI } from "./abi.js";
@@ -33,12 +33,12 @@ async function handle(id) {
 }
 
 async function main() {
-  if (!account) throw new Error("Set WORKER_PRIVATE_KEY (a dedicated wallet holding a little USDC for gas).");
+  if (!account) throw new Error("Set WORKER_PRIVATE_KEY (a dedicated wallet holding a little of the native coin for gas).");
   console.log("BountyAgent reference agent online");
   console.log(`  network : ${chain.name} (${chain.id})`);
   console.log(`  contract: ${CONTRACT}`);
   console.log(`  agent   : ${account.address}`);
-  console.log(`  balance : ${formatEther(await publicClient.getBalance({ address: account.address }))} USDC`);
+  console.log(`  balance : ${formatEther(await publicClient.getBalance({ address: account.address }))} ${chain.nativeCurrency.symbol}`);
   console.log(`  brain   : ${process.env.GEMINI_API_KEY ? "Gemini" : "deterministic analyzer (offline)"}`);
   await ensureProfile().catch((e) => console.warn(`  ! profile: ${e.shortMessage || e.message}`));
 

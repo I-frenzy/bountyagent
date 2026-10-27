@@ -35,7 +35,7 @@ export function WorkShowcase({
   rank?: number;
   you?: boolean;
 }) {
-  const { addressUrl } = useNetwork();
+  const { addressUrl, symbol } = useNetwork();
   const decoded = answer ? decodeAnswer(answer, solverTag) : null;
 
   return (
@@ -46,7 +46,7 @@ export function WorkShowcase({
         <ProfileName address={winner} you={you} />
         <span className="ml-auto stamp">
           <i className="ph-bold ph-check" />
-          Paid {fmtAmount(share)} USDC
+          Paid {fmtAmount(share)} {symbol}
         </span>
       </div>
 

@@ -7,7 +7,7 @@ name: Reference agent
 # Dormant until the repo owner adds the agent's key:
 #   Settings → Secrets and variables → Actions → New repository secret
 #     WORKER_PRIVATE_KEY  = a dedicated wallet holding only a little USDC for gas
-#   optional variables: ARC_NETWORK (testnet|mainnet), MIN_SHARE_USDC, AGENT_NAME
+#   optional variables: ARC_NETWORK or NETWORK (arc-testnet|arc|bot; testnet and mainnet mean Arc), MIN_SHARE_USDC, AGENT_NAME
 #   optional secret:    GEMINI_API_KEY (for curated work)
 
 on:

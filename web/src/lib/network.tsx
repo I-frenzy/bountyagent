@@ -12,14 +12,14 @@ import {
 import type { Chain } from "viem";
 import {
   DEFAULT_NETWORK,
-  DEV_LOCAL,
   NETWORKS,
   explorerAddrUrl,
   explorerTxUrl,
+  parseNetworkId,
   type NetworkId,
   type Extras,
   type Verifiers,
-} from "./arc";
+} from "./chains";
 
 const STORAGE_KEY = "bountyagent-network";
 
@@ -33,6 +33,9 @@ type NetworkState = {
   erc8004: { identity: `0x${string}`; reputation: `0x${string}` };
   hasProfiles: boolean;
   isLive: boolean;
+  label: string;
+  symbol: string;
+  faucet?: string;
   isContractConfigured: boolean;
   txUrl: (hash: string) => string;
   addressUrl: (addr: string) => string;
@@ -46,7 +49,8 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
   // Restore last choice after mount (avoids hydration mismatch).
   useEffect(() => {
     const saved = window.localStorage.getItem(STORAGE_KEY);
-    if (saved === "testnet" || saved === "mainnet" || (saved === "local" && DEV_LOCAL)) setNetworkState(saved);
+    const parsed = parseNetworkId(saved);
+    if (parsed) setNetworkState(parsed);
   }, []);
 
   const setNetwork = useCallback((id: NetworkId) => {
@@ -67,6 +71,9 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
       erc8004: cfg.erc8004,
       hasProfiles: !/^0x0+$/.test(cfg.erc8004.identity),
       isLive: cfg.live,
+      label: cfg.label,
+      symbol: cfg.symbol,
+      faucet: cfg.faucet,
       isContractConfigured:
         /^0x[a-fA-F0-9]{40}$/.test(cfg.contract) && !/^0x0+$/.test(cfg.contract),
       txUrl: (hash: string) => explorerTxUrl(cfg.chain, hash),

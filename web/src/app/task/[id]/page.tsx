@@ -25,7 +25,7 @@ export default function TaskReceiptPage({ params }: { params: { id: string } }) 
   const id = /^\d+$/.test(params.id) ? BigInt(params.id) : null;
   const { data, loading, error } = useTaskReceipt(id);
   const me = useWallet().address?.toLowerCase();
-  const { addressUrl, txUrl, network } = useNetwork();
+  const { addressUrl, txUrl, network, symbol } = useNetwork();
 
   const idPad = id !== null ? String(id).padStart(3, "0") : "—";
   const kicker = "font-mono text-[11px] font-medium uppercase tracking-wide3 text-muted";
@@ -91,7 +91,7 @@ export default function TaskReceiptPage({ params }: { params: { id: string } }) 
           <div className="flex flex-col items-start gap-1 md:items-end">
             <span className="flex items-baseline gap-2">
               <span className="tnum text-6xl font-light leading-none tracking-tighter text-verdict">{fmtAmount(task.reward)}</span>
-              <span className="font-mono text-xs text-muted">USDC</span>
+              <span className="font-mono text-xs text-muted">{symbol}</span>
             </span>
             {maxWinners > 1 && (
               <span className="font-mono text-[12px] text-sub">
@@ -182,7 +182,7 @@ export default function TaskReceiptPage({ params }: { params: { id: string } }) 
             <TxGroup key={g[0].tx} n={i + 1} steps={g} verified={verified} txUrl={txUrl} />
           ))}
           <div className="flex flex-col gap-2 px-4 py-4 font-mono text-[12px] text-sub">
-            <Row k="Fees for the whole bounty" v={`${fmtFee(totalFees)}${feePct > 0 ? ` · ${feePct < 0.01 ? "<0.01" : feePct.toFixed(2)}% of it` : ""}`} />
+            <Row k="Fees for the whole bounty" v={`${fmtFee(totalFees, symbol)}${feePct > 0 ? ` · ${feePct < 0.01 ? "<0.01" : feePct.toFixed(2)}% of it` : ""}`} />
             {timeToFirstPayout !== undefined && <Row k="Posted → first payout" v={fmtDuration(timeToFirstPayout)} />}
             {verified && winners.length > 0 && <Row k="Check + payout" v="same transaction" />}
             <Row k="Final after" v="1 block" />
@@ -216,6 +216,7 @@ function TxGroup({
   verified: boolean;
   txUrl: (h: string) => string;
 }) {
+  const { symbol } = useNetwork();
   const s0 = steps[0];
   return (
     <div className="grid grid-cols-[26px_minmax(0,1fr)] gap-x-2.5 border-b border-hair px-4 py-3">
@@ -232,7 +233,7 @@ function TxGroup({
         <span className="flex flex-wrap gap-x-3 font-mono text-[11px] text-muted">
           <span>{fmtDateTime(s0.timestamp)}</span>
           <span>block {s0.block.toLocaleString()}</span>
-          <span>fee {fmtFee(s0.fee)}</span>
+          <span>fee {fmtFee(s0.fee, symbol)}</span>
           <a href={txUrl(s0.tx)} target="_blank" rel="noreferrer" className="text-ink no-underline hover:text-verdict">
             tx {s0.tx.slice(0, 8)}… ↗
           </a>
@@ -243,6 +244,7 @@ function TxGroup({
 }
 
 function StepLine({ step, verified }: { step: ReceiptStep; verified: boolean }) {
+  const { symbol } = useNetwork();
   const label: Record<ReceiptStep["kind"], string> = {
     posted: "POSTED",
     revealed: "REVEALED",
@@ -253,19 +255,19 @@ function StepLine({ step, verified }: { step: ReceiptStep; verified: boolean }) 
   let text: React.ReactNode;
   switch (step.kind) {
     case "posted":
-      text = <>{fmtAmount(step.amount ?? 0n)} USDC locked in escrow by <ProfileName address={step.who!} links={false} /></>;
+      text = <>{fmtAmount(step.amount ?? 0n)} {symbol} locked in escrow by <ProfileName address={step.who!} links={false} /></>;
       break;
     case "revealed":
       text = <>Answer revealed by <ProfileName address={step.who!} links={false} /> — checked by the contract</>;
       break;
     case "paid":
-      text = <>{fmtAmount(step.amount ?? 0n)} USDC to <ProfileName address={step.who!} links={false} />{verified ? ", automatically" : ""}</>;
+      text = <>{fmtAmount(step.amount ?? 0n)} {symbol} to <ProfileName address={step.who!} links={false} />{verified ? ", automatically" : ""}</>;
       break;
     case "reputation":
       text = step.ok ? <>Win written to the winner&apos;s ERC-8004 reputation</> : <>Winner&apos;s profile couldn&apos;t be credited</>;
       break;
     case "closed":
-      text = step.refunded && step.refunded > 0n ? <>{fmtAmount(step.refunded)} USDC unpaid, returned to the creator</> : <>All shares paid; bounty closed</>;
+      text = step.refunded && step.refunded > 0n ? <>{fmtAmount(step.refunded)} {symbol} unpaid, returned to the creator</> : <>All shares paid; bounty closed</>;
       break;
   }
   return (
@@ -286,9 +288,10 @@ function Row({ k, v }: { k: string; v: string }) {
 }
 
 function ShareButtons({ id, amount, network }: { id: string; amount: string; network: string }) {
+  const { symbol, label } = useNetwork();
   const [copied, setCopied] = useState(false);
   const url = typeof window !== "undefined" ? window.location.href : "";
-  const text = `Bounty #${id} on BountyAgent: ${amount} USDC, settled on Arc${network === "mainnet" ? "" : ` (${network})`}.`;
+  const text = `Bounty #${id} on BountyAgent: ${amount} ${symbol}, settled on ${label}.`;
   return (
     <span className="ml-auto inline-flex items-center gap-2">
       <button

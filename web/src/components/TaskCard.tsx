@@ -17,7 +17,7 @@ const MAX_SUBMISSION = 4000;
 
 export function TaskCard({ item, onChange }: { item: TaskWithSubs; onChange: () => void }) {
   const { address, isConnected, wrongNetwork } = useWallet();
-  const { contract, addressUrl, txUrl, verifiers, extras } = useNetwork();
+  const { contract, addressUrl, txUrl, verifiers, extras, symbol } = useNetwork();
   const { push } = useToast();
   const tx = useTx();
 
@@ -168,7 +168,7 @@ export function TaskCard({ item, onChange }: { item: TaskWithSubs; onChange: () 
               >
                 {fmtAmount(task.reward)}
               </span>
-              <span className="font-mono text-[11px] font-medium text-muted">USDC</span>
+              <span className="font-mono text-[11px] font-medium text-muted">{symbol}</span>
             </span>
             <i
               className={`ph ph-caret-down text-muted transition-transform ${expanded ? "rotate-180" : ""}`}
@@ -179,7 +179,7 @@ export function TaskCard({ item, onChange }: { item: TaskWithSubs; onChange: () 
 
         {multi && (
           <span className="font-mono text-[11.5px] text-sub">
-            {maxWinners} winners × {fmtAmount(share)} USDC each
+            {maxWinners} winners × {fmtAmount(share)} {symbol} each
           </span>
         )}
 
@@ -237,8 +237,8 @@ export function TaskCard({ item, onChange }: { item: TaskWithSubs; onChange: () 
             <div className="flex items-start gap-2.5 border-t border-dashed border-edge pt-3 text-[13px] leading-snug text-sub">
               <i className="ph ph-lock-simple mt-0.5 text-[15px] text-verdict" />
               <span>
-                The {fmtAmount(task.reward)} USDC is already locked in the contract. Anyone can submit
-                {multi ? `; the poster pays up to ${maxWinners} submissions ${fmtAmount(share)} USDC each` : "; the poster pays the one they choose"}
+                The {fmtAmount(task.reward)} {symbol} is already locked in the contract. Anyone can submit
+                {multi ? `; the poster pays up to ${maxWinners} submissions ${fmtAmount(share)} ${symbol} each` : "; the poster pays the one they choose"}
                 . If nobody is chosen by the deadline, the poster gets the money back.
               </span>
             </div>
@@ -283,7 +283,7 @@ export function TaskCard({ item, onChange }: { item: TaskWithSubs; onChange: () 
               />
               <div className="flex flex-wrap items-center gap-3">
                 <span className="text-[12.5px] text-muted">
-                  Public on-chain. Costs a fraction of a cent in USDC gas; it doesn&apos;t spend the bounty.
+                  Public on-chain. Costs a small amount of {symbol} in gas; it doesn&apos;t spend the bounty.
                 </span>
                 <button
                   className="btn-primary ml-auto min-h-[36px] px-4 text-[13.5px]"
@@ -331,16 +331,16 @@ export function TaskCard({ item, onChange }: { item: TaskWithSubs; onChange: () 
                       {won && (
                         <span className="stamp">
                           <i className="ph-bold ph-check" />
-                          Paid {fmtAmount(share)} USDC
+                          Paid {fmtAmount(share)} {symbol}
                         </span>
                       )}
                       {canPay && !won && (
                         <button
                           className="inline-flex min-h-[32px] items-center gap-1.5 bg-verdict px-3 font-sans text-[13px] font-medium text-ground hover:bg-body disabled:opacity-40"
                           disabled={busy}
-                          onClick={() => call("completeTask", [id, s.agent], `Paid ${fmtAmount(share)} USDC to ${shortAddr(s.agent)}.`)}
+                          onClick={() => call("completeTask", [id, s.agent], `Paid ${fmtAmount(share)} ${symbol} to ${shortAddr(s.agent)}.`)}
                         >
-                          {busy ? "…" : `Pay ${fmtAmount(share)} USDC`}
+                          {busy ? "…" : `Pay ${fmtAmount(share)} ${symbol}`}
                           <i className="ph ph-arrow-right" />
                         </button>
                       )}
@@ -356,7 +356,7 @@ export function TaskCard({ item, onChange }: { item: TaskWithSubs; onChange: () 
             <div className="flex flex-wrap items-center gap-2 border-t border-dashed border-edge pt-3">
               <span className="mr-auto text-[13px] text-sub">
                 Done choosing? Finish now and the {unpaid} unpaid share{unpaid > 1 ? "s" : ""} (
-                {fmtAmount(share * BigInt(unpaid))} USDC) go back to the poster.
+                {fmtAmount(share * BigInt(unpaid))} {symbol}) go back to the poster.
               </span>
               <button
                 className="btn-secondary min-h-[34px] px-3 text-[13px]"
@@ -389,10 +389,10 @@ export function TaskCard({ item, onChange }: { item: TaskWithSubs; onChange: () 
                 <button
                   className="btn-primary min-h-[34px] px-3 text-[13px]"
                   disabled={busy}
-                  onClick={() => call("reclaimExpired", [id], "Unpaid USDC reclaimed.")}
+                  onClick={() => call("reclaimExpired", [id], `Unpaid ${symbol} reclaimed.`)}
                 >
                   <i className="ph ph-arrow-u-down-left" />
-                  {busy ? "…" : "Reclaim unpaid USDC"}
+                  {busy ? "…" : `Reclaim unpaid ${symbol}`}
                 </button>
               )}
             </div>

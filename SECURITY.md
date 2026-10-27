@@ -1,6 +1,6 @@
 # Security
 
-BountyAgent holds real USDC on Arc mainnet. This page covers how to report a
+BountyAgent holds real value (the native coin) on Arc mainnet and BOT Chain. This page covers how to report a
 problem, what protects user funds, and how every automated finding was triaged.
 
 ## Reporting a vulnerability
@@ -21,7 +21,7 @@ at risk. You'll get a reply within 72 hours.
 - **Every escrow expires.** Deadlines are mandatory (10 min – 30 days), so one
   junk submission can't lock funds forever; a verified solver who committed in
   time gets a 15-minute reveal grace before the creator can reclaim.
-- **Beta caps.** At most 100 USDC per bounty and 50 submitters per curated task,
+- **Beta caps.** At most 100 of the native coin per bounty (100 USDC on Arc, 100 BOT on BOT Chain) and 50 submitters per curated task,
   enforced in the contract. They bound what any undiscovered bug could cost.
 - **Multi-claim bounties can't be copied or double-paid.** A bounty split among
   N winners pays each address at most once; in verified mode only commits made in

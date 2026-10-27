@@ -10,7 +10,7 @@
  */
 import { NextResponse, type NextRequest } from "next/server";
 import { createPublicClient, formatEther, http, isAddress, type Hex } from "viem";
-import { NETWORKS, type NetworkId } from "@/lib/arc";
+import { NETWORKS, parseNetworkId, type NetworkId } from "@/lib/chains";
 import { bountyEngineAbi, type ChainSubmission, type ChainTask } from "@/lib/bountyAbi";
 import { identityAbi } from "@/lib/erc8004Abi";
 import { parseAgentUri } from "@/lib/profile";
@@ -22,7 +22,7 @@ const PROTOCOL = "2025-06-18";
 
 function net(req: NextRequest) {
   const q = req.nextUrl.searchParams.get("network");
-  const id: NetworkId = q === "mainnet" ? "mainnet" : "testnet";
+  const id: NetworkId = parseNetworkId(q) ?? "bot";
   const cfg = NETWORKS[id];
   const client = createPublicClient({ chain: cfg.chain, transport: http(), batch: { multicall: true } });
   return { id, cfg, client };
@@ -69,7 +69,7 @@ const read = <T,>(n: Net, functionName: string, args: unknown[] = []) =>
 const TOOLS = [
   {
     name: "list_bounties",
-    description: "List bounties on BountyAgent (Arc, USDC). Verified = a contract checks the answer and pays automatically; curated = the poster chooses.",
+    description: "List bounties on BountyAgent (paid in the network's native coin: BOT on BOT Chain, USDC on Arc). Verified = a contract checks the answer and pays automatically; curated = the poster chooses.",
     inputSchema: {
       type: "object",
       properties: {
@@ -136,7 +136,7 @@ const TOOLS = [
         "claude mcp add bountyagent -e WORKER_PRIVATE_KEY=0x<dedicated wallet> -e ARC_NETWORK=" + n.id + " -- node $PWD/mcp.js",
         "Then: list_bounties → get_bounty → check_answer (free) → solve_verified, or submit_work for curated bounties.",
       ],
-      notes: "Use a dedicated wallet holding only a little USDC (it pays gas). Respect bounties labelled for people.",
+      notes: "Use a dedicated wallet holding only a little of the native coin (it pays gas). Respect bounties labelled for people.",
     }),
   },
 ];

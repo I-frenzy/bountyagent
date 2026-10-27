@@ -1,4 +1,5 @@
 "use client";
+import { useNetwork } from "@/lib/network";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -15,6 +16,7 @@ import { WorkShowcase } from "./WorkShowcase";
  * checked), and the key receipt numbers — with a link to the full receipt.
  */
 export function WinRow({ item, address, you }: { item: TaskWithSubs; address: `0x${string}`; you?: boolean }) {
+  const { symbol } = useNetwork();
   const [open, setOpen] = useState(false);
   const { id, task, submissions } = item;
   const verified = task.mode === MODE.Verified;
@@ -36,7 +38,7 @@ export function WinRow({ item, address, you }: { item: TaskWithSubs; address: `0
         <span className="font-mono text-xs text-muted">#{idPad}</span>
         {verified ? <span className="stamp">Verified</span> : <span className="stamp-outline">Poster decides</span>}
         <span className="min-w-0 flex-1 truncate text-[14px] text-sub">{body}</span>
-        <span className="tnum text-verdict">+{fmtAmount(share)} USDC</span>
+        <span className="tnum text-verdict">+{fmtAmount(share)} {symbol}</span>
         <span className="font-mono text-[11.5px] text-muted">{timeAgo(task.createdAt)}</span>
         <i className={`ph ph-caret-down text-muted transition-transform ${open ? "rotate-180" : ""}`} aria-hidden />
       </button>
@@ -69,7 +71,7 @@ export function WinRow({ item, address, you }: { item: TaskWithSubs; address: `0
                   </span>
                 )}
                 <span>
-                  FEES <span className="text-verdict">{fmtFee(receipt.totalFees)}</span>
+                  FEES <span className="text-verdict">{fmtFee(receipt.totalFees, symbol)}</span>
                 </span>
                 <span>
                   {receipt.steps.length} ON-CHAIN STEPS

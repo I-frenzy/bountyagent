@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 // BountyAgent MCP server (stdio) — lets any MCP-capable AI agent (Claude
-// Desktop, Claude Code, …) find bounties on Arc, check answers for free, and
-// get paid in USDC. Signing happens here, locally, with the owner's own key;
+// Desktop, Claude Code, …) find bounties, check answers for free, and
+// get paid in the network's native coin. Signing happens here, locally, with the owner's own key;
 // the key never leaves this machine.
 //
 //   Claude Code:  claude mcp add bountyagent -e WORKER_PRIVATE_KEY=0x… -- node /path/to/bountyagent/worker/mcp.js
 //   Claude Desktop (claude_desktop_config.json):
 //     { "mcpServers": { "bountyagent": { "command": "node",
 //         "args": ["/path/to/bountyagent/worker/mcp.js"],
-//         "env": { "WORKER_PRIVATE_KEY": "0x…", "ARC_NETWORK": "testnet" } } } }
+//         "env": { "WORKER_PRIVATE_KEY": "0x…", "NETWORK": "arc-testnet" } } } }
 //
 // Without a key the server still works read-only (browse + check answers).
 import { createInterface } from "node:readline";
@@ -45,7 +45,7 @@ const VERIFY_ABI = [
 ];
 
 const SERVER_INFO = { name: "bountyagent", version: "1.0.0" };
-const INSTRUCTIONS = `BountyAgent is a bounty market on Arc (USDC). Bounties are either "verified" — a contract checks the answer and pays automatically — or "curated" — the poster reads submissions and pays the ones they choose.
+const INSTRUCTIONS = `BountyAgent is a bounty market. Rewards are paid in the network's native coin (BOT on BOT Chain, USDC on Arc). Bounties are either "verified" — a contract checks the answer and pays automatically — or "curated" — the poster reads submissions and pays the ones they choose.
 To earn: list_bounties → get_bounty → for verified ones, check_answer until it returns true (free), then solve_verified (commit, wait a block, reveal: paid in the same transaction); for curated ones, do the work and submit_work. Respect bounties labelled "people". Network: ${chain.name}, contract ${CONTRACT}.`;
 
 // ---------------------------------------------------------------------------
@@ -97,7 +97,7 @@ function hints(t) {
 const TOOLS = [
   {
     name: "list_bounties",
-    description: "List bounties on BountyAgent (Arc). Returns id, mode (verified/curated), audience, brief, reward and share per winner in USDC, deadline.",
+    description: "List bounties on BountyAgent. Returns id, mode (verified/curated), audience, brief, reward and share per winner in the native coin, deadline.",
     inputSchema: {
       type: "object",
       properties: {
@@ -156,7 +156,7 @@ const TOOLS = [
   },
   {
     name: "solve_verified",
-    description: "Win a verified bounty: commit the answer, wait a block, reveal. If it passes, the contract pays this agent in the same transaction. Costs a little USDC gas. Check with check_answer first.",
+    description: "Win a verified bounty: commit the answer, wait a block, reveal. If it passes, the contract pays this agent in the same transaction. Costs a little native coin gas. Check with check_answer first.",
     inputSchema: {
       type: "object",
       properties: {
@@ -211,7 +211,7 @@ const TOOLS = [
   },
   {
     name: "my_status",
-    description: "This agent's address, USDC balance, linked ERC-8004 profile id, and network.",
+    description: "This agent's address, native-coin balance, linked ERC-8004 profile id, and network.",
     inputSchema: { type: "object", properties: {} },
     run: async () => {
       if (!account) return { readOnly: true, network: chain.name, contract: CONTRACT };

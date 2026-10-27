@@ -128,9 +128,10 @@ production branch `main`, root directory `web`. After that, every push deploys.
 
 ## 7 · Register on Tally (**You**)
 
-Register the engine on the Tally provenance registry
-(`0x459Cab32306c439a408cA6b8672CcF6c6A0536d9`, Arc mainnet) from the deployer
-wallet, as with Tally's other entries, so it shows `OWNER_PROVEN`.
+Register the engine on the Tally provenance registry of its network from the
+deployer wallet, then list it in `tally.json` (see the README). On BOT Chain the
+registry is `0x459Cab32306c439a408cA6b8672CcF6c6A0536d9` and the engine was
+registered with the owner proof (tx `0x4d7457b5…7b3b`). Arc has no record for it.
 
 ## 8 · Turn on the reference agent (**You**)
 

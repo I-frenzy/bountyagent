@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "contracts": [
+    { "chainId": 677, "address": "0x9A7a66fc35b9237FD88E7f9fccC82A830eF90Ade", "signer": "0xDFE783E927Eec2c10815A4a1910a797c65D20ef2" }
+  ]
+}

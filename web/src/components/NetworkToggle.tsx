@@ -2,10 +2,10 @@
 
 import { useWallet } from "@/lib/wallet";
 import { useNetwork } from "@/lib/network";
-import { DEV_LOCAL, NETWORKS, type NetworkId } from "@/lib/arc";
+import { DEV_LOCAL, NETWORKS, NETWORK_ORDER, type NetworkId } from "@/lib/chains";
 
 export function NetworkToggle() {
-  const { network, setNetwork } = useNetwork();
+  const { network, setNetwork, isLive } = useNetwork();
   const { isConnected, switchToChain } = useWallet();
 
   async function pick(id: NetworkId) {
@@ -19,47 +19,35 @@ export function NetworkToggle() {
     }
   }
 
-  const onMainnet = network === "mainnet";
+  const ids: NetworkId[] = DEV_LOCAL ? ["local", ...NETWORK_ORDER] : NETWORK_ORDER;
 
   return (
     <div
       role="radiogroup"
       aria-label="Network"
-      className={`inline-flex border ${onMainnet ? "border-verdict" : "border-rule"}`}
+      className={`inline-flex border ${isLive ? "border-verdict" : "border-rule"}`}
     >
-      {DEV_LOCAL && (
-        <button
-          role="radio"
-          aria-checked={network === "local"}
-          onClick={() => pick("local")}
-          className={`px-2 py-[7px] font-mono text-[11.5px] sm:px-3 font-medium uppercase tracking-wide2 ${
-            network === "local" ? "bg-verdict text-ground" : "text-muted hover:text-ink"
-          }`}
-        >
-          Local
-        </button>
-      )}
-      <button
-        role="radio"
-        aria-checked={network === "testnet"}
-        onClick={() => pick("testnet")}
-        className={`px-2 py-[7px] font-mono text-[11.5px] sm:px-3 font-medium uppercase tracking-wide2 ${
-          network === "testnet" ? "bg-verdict text-ground" : "text-muted hover:text-ink"
-        }`}
-      >
-        Testnet
-      </button>
-      <button
-        role="radio"
-        aria-checked={onMainnet}
-        onClick={() => pick("mainnet")}
-        className={`inline-flex items-center gap-1.5 px-2 py-[7px] font-mono text-[11.5px] sm:px-3 font-medium uppercase tracking-wide2 ${
-          onMainnet ? "hazard-soft text-ground" : "text-muted hover:text-ink"
-        }`}
-      >
-        {onMainnet && <i className="ph-bold ph-warning" />}
-        Mainnet
-      </button>
+      {ids.map((id) => {
+        const active = network === id;
+        const live = NETWORKS[id].live;
+        const tone = active
+          ? live
+            ? "hazard-soft text-ground"
+            : "bg-verdict text-ground"
+          : "text-muted hover:text-ink";
+        return (
+          <button
+            key={id}
+            role="radio"
+            aria-checked={active}
+            onClick={() => pick(id)}
+            className={`inline-flex items-center gap-1.5 px-2 py-[7px] font-mono text-[11.5px] sm:px-3 font-medium uppercase tracking-wide2 ${tone}`}
+          >
+            {active && live && <i className="ph-bold ph-warning" />}
+            {NETWORKS[id].short}
+          </button>
+        );
+      })}
     </div>
   );
 }

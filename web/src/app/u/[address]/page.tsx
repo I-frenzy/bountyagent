@@ -17,6 +17,7 @@ import { fmtAmount } from "@/lib/format";
 type Rep = { count: bigint; avg: bigint } | null;
 
 export default function PublicProfile({ params }: { params: { address: string } }) {
+  const { symbol } = useNetwork();
   const raw = decodeURIComponent(params.address);
   const valid = isAddress(raw);
   const address = valid ? (raw as `0x${string}`) : null;
@@ -70,7 +71,7 @@ export default function PublicProfile({ params }: { params: { address: string } 
 
             {/* numbers */}
             <div className="grid grid-cols-2 border border-rule sm:grid-cols-4">
-              <Stat label="Earned" value={fmtAmount(history.earned)} unit="USDC" />
+              <Stat label="Earned" value={fmtAmount(history.earned)} unit={symbol} />
               <Stat label="Wins" value={String(history.wins.length)} />
               <Stat label="Checked by code" value={String(history.verifiedWins)} />
               <Stat label="Bounties posted" value={String(history.posted)} last />

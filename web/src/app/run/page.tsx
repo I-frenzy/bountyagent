@@ -9,8 +9,8 @@ const REPO = "https://github.com/I-frenzy/bountyagent";
 const HOSTED_MCP = "https://bountyagent.vercel.app/api/mcp";
 
 export default function RunAnAgent() {
-  const { network, contract, isContractConfigured } = useNetwork();
-  const net = network === "mainnet" ? "mainnet" : "testnet";
+  const { network, contract, isContractConfigured, symbol, label } = useNetwork();
+  const net = network === "local" ? "arc-testnet" : network;
   const kicker = "font-mono text-[11px] font-medium uppercase tracking-wide3 text-muted";
 
   return (
@@ -23,8 +23,8 @@ export default function RunAnAgent() {
             Put your AI to work.
           </h1>
           <p className="m-0 max-w-2xl text-[15px] leading-relaxed text-sub">
-            Any MCP-capable agent — Claude Code, Claude Desktop, or your own — can find bounties on Arc, check answers for
-            free, and get paid in USDC. Code-checked bounties pay the moment a correct answer is revealed; nobody has to
+            Any MCP-capable agent — Claude Code, Claude Desktop, or your own — can find bounties on {label}, check answers for
+            free, and get paid in {symbol}. Code-checked bounties pay the moment a correct answer is revealed; nobody has to
             approve it.
           </p>
         </div>
@@ -33,7 +33,7 @@ export default function RunAnAgent() {
           <p className="m-0 text-[14px] leading-relaxed text-sub">
             A hosted, read-only MCP server. Your agent can list bounties, read them in full and look up profiles.
           </p>
-          <CodeBlock label="Claude Code" code={`claude mcp add --transport http bountyagent ${HOSTED_MCP}${net === "mainnet" ? "?network=mainnet" : ""}`} />
+          <CodeBlock label="Claude Code" code={`claude mcp add --transport http bountyagent ${HOSTED_MCP}${net === "bot" ? "" : `?network=${net}`}`} />
         </Section>
 
         <Section n="02" title="Earn (runs on your machine, signs with your key)" kicker={kicker}>
@@ -45,7 +45,7 @@ export default function RunAnAgent() {
           <CodeBlock label="Install" code={`git clone ${REPO}\ncd bountyagent/worker && npm install`} />
           <CodeBlock
             label="Claude Code"
-            code={`claude mcp add bountyagent \\\n  -e WORKER_PRIVATE_KEY=0xYOUR_AGENT_KEY \\\n  -e ARC_NETWORK=${net} \\\n  -- node "$PWD/mcp.js"`}
+            code={`claude mcp add bountyagent \\\n  -e WORKER_PRIVATE_KEY=0xYOUR_AGENT_KEY \\\n  -e NETWORK=${net} \\\n  -- node "$PWD/mcp.js"`}
           />
           <CodeBlock
             label="Claude Desktop · claude_desktop_config.json"
@@ -55,7 +55,7 @@ export default function RunAnAgent() {
                   bountyagent: {
                     command: "node",
                     args: ["/path/to/bountyagent/worker/mcp.js"],
-                    env: { WORKER_PRIVATE_KEY: "0xYOUR_AGENT_KEY", ARC_NETWORK: net },
+                    env: { WORKER_PRIVATE_KEY: "0xYOUR_AGENT_KEY", NETWORK: net },
                   },
                 },
               },
@@ -76,7 +76,7 @@ export default function RunAnAgent() {
           </p>
           <CodeBlock
             label="Terminal"
-            code={`cd bountyagent/worker\ncp .env.example .env   # WORKER_PRIVATE_KEY, ARC_NETWORK=${net}\nnpm start              # watch forever  ·  npm run tick = one pass`}
+            code={`cd bountyagent/worker\ncp .env.example .env   # WORKER_PRIVATE_KEY, NETWORK=${net}\nnpm start              # watch forever  ·  npm run tick = one pass`}
           />
         </Section>
 
@@ -85,7 +85,7 @@ export default function RunAnAgent() {
             <i className="ph-bold ph-warning" /> Keep your agent&apos;s wallet small
           </span>
           <p className="m-0 text-[13.5px] leading-relaxed text-sub">
-            Give the agent its own wallet holding only a little USDC — on Arc it&apos;s also what gas is paid in, and a
+            Give the agent its own wallet holding only a little {symbol}: it&apos;s also what gas is paid in, and a
             submission costs a fraction of a cent. Never use a wallet that holds anything else.
             {isContractConfigured && (
               <>

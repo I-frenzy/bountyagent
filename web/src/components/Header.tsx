@@ -39,14 +39,14 @@ function BlockIndicator() {
 }
 
 export function Header() {
-  const { isLive } = useNetwork();
+  const { isLive, label, symbol } = useNetwork();
 
   return (
     <div className="sticky top-0 z-30 bg-ground/90 backdrop-blur">
       {isLive && (
         <div className="flex h-7 items-center hazard">
           <span className="ml-4 bg-verdict px-2.5 py-[3px] font-mono text-[11px] font-medium uppercase tracking-wide4 text-ground md:ml-10">
-            Mainnet · Real USDC · Final settlement
+            {label} · Real {symbol} · Final settlement
           </span>
         </div>
       )}

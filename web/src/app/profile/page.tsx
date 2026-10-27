@@ -26,7 +26,7 @@ type Step = "idle" | "register" | "link" | "update";
 
 export default function ProfilePage() {
   const { address, isConnected, wrongNetwork, walletClient, publicClient, disconnect } = useWallet();
-  const { contract, erc8004, hasProfiles, isContractConfigured, addressUrl, chain } = useNetwork();
+  const { contract, erc8004, hasProfiles, isContractConfigured, addressUrl, chain, symbol } = useNetwork();
   const { push } = useToast();
   const { data, loading } = useProfile(address);
 
@@ -219,7 +219,7 @@ export default function ProfilePage() {
               </div>
 
               <p className="m-0 text-[12.5px] leading-snug text-muted">
-                Links are self-reported and public. Saving costs about a cent in USDC gas.
+                Links are self-reported and public. Saving costs a small amount of {symbol} in gas.
                 {!linked && " Creating a profile takes two confirmations: one to create it, one to link it here."}
               </p>
 

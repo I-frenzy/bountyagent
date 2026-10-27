@@ -5,7 +5,7 @@ export function shortAddr(address: string): string {
   return `${address.slice(0, 6)}…${address.slice(-4)}`;
 }
 
-/** Native USDC (18-decimal view) → human string like "1.25". */
+/** Native coin (18-decimal view) → human string like "1.25". */
 export function fmtUsdc(wei: bigint): string {
   const s = formatEther(wei);
   // trim to at most 4 dp, drop trailing zeros
@@ -80,12 +80,17 @@ export function challengeLabel(spec: string): string | null {
   return null;
 }
 
-/** A transaction fee in USDC — tiny on Arc, so show enough digits: "$0.0042". */
-export function fmtFee(wei: bigint): string {
+/**
+ * A transaction fee in the native coin. Fees are tiny, so show enough digits:
+ * "$0.0042" for USDC (a dollar coin), "0.0042 BOT" for other coins.
+ */
+export function fmtFee(wei: bigint, symbol = "USDC"): string {
   const n = Number(formatEther(wei));
-  if (n === 0) return "$0";
-  if (n < 0.0001) return "<$0.0001";
-  return `$${n < 1 ? n.toFixed(4) : n.toFixed(2)}`;
+  const usd = symbol === "USDC";
+  const show = (x: string) => (usd ? `$${x}` : `${x} ${symbol}`);
+  if (n === 0) return show("0");
+  if (n < 0.0001) return usd ? "<$0.0001" : `<0.0001 ${symbol}`;
+  return show(n < 1 ? n.toFixed(4) : n.toFixed(2));
 }
 
 /** Seconds as "42s", "3m 10s", "2h 5m", "3d 4h". */
