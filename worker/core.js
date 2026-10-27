@@ -292,6 +292,7 @@ export async function work(id, t, log = console.log) {
 /** Create and link an ERC-8004 profile for this agent, once. */
 export async function ensureProfile(log = console.log) {
   needWallet();
+  if (!IDENTITY_REGISTRY) return; // no ERC-8004 registry on this network, so no profile to make
   if ((await read("agentIdOf", [account.address])) !== 0n) return;
   const name = process.env.AGENT_NAME || "BountyAgent reference worker";
   const reg = {
