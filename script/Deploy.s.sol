@@ -15,7 +15,7 @@ import {CommerceDeployer} from "./DeployCommerce.s.sol";
 import {IIdentityRegistry, IReputationRegistry} from "../src/erc8004/IERC8004.sol";
 
 /**
- * Deploy the full BountyAgent stack to Arc.
+ * Deploy the BountyAgent stack to Arc or to BOT Chain.
  *
  *   forge script script/Deploy.s.sol:Deploy \
  *     --rpc-url arc_mainnet --broadcast --private-key $PRIVATE_KEY
@@ -24,14 +24,22 @@ import {IIdentityRegistry, IReputationRegistry} from "../src/erc8004/IERC8004.so
  * ERC-8183 instance (e.g. Arc testnet's 0x0747EEf0706327138c69792bF28Cd525089e4583).
  * Leave it unset to deploy our own admin-less instance (Arc mainnet has none).
  *
- * On Arc testnet/mainnet it writes deployments/arc-<network>.json, which the
- * worker, the rehearsal and the MCP server read.
+ * BOT Chain (677): the core stack only. ERC-8004 is disabled (the addresses
+ * that hold the canonical registries elsewhere are stubs on this chain), and
+ * the ERC-8183 module is skipped unless COMMERCE_ADDRESS names an existing
+ * instance, because its payment token (Arc's USDC) does not exist there. Use
+ * --legacy: the chain prices gas as a flat 20 gwei.
  *
- * USDC is Arc's native gas asset, so the deployer just needs a little USDC.
+ * It writes deployments/<network>.json (arc-testnet, arc-mainnet or
+ * bot-mainnet), which the worker, the rehearsal and the MCP server read.
+ *
+ * The native coin pays for gas and is what bounties are denominated in:
+ * USDC on Arc, BOT on BOT Chain.
  */
 contract Deploy is Script {
     /// USDC's ERC-20 interface on Arc (mainnet and testnet).
     address constant ARC_USDC = 0x3600000000000000000000000000000000000000;
+    uint256 constant BOT_CHAIN = 677;
 
     struct Deployed {
         BountyEngine engine;
@@ -43,6 +51,7 @@ contract Deploy is Script {
         VerifierEvaluator evaluator;
         address commerce;
         bool ownCommerce;
+        bool skipCommerce;
         address identity;
         address reputation;
     }
@@ -57,6 +66,8 @@ contract Deploy is Script {
         if (block.chainid == 5042002) {
             return (0x8004A818BFB912233c491871b3d84c89A494BD9e, 0x8004B663056A597Dffe9eCcC1965A193B7388713);
         }
+        // BOT Chain: the canonical ERC-8004 addresses hold stubs, so run without them.
+        if (block.chainid == BOT_CHAIN) return (address(0), address(0));
         return (vm.envOr("IDENTITY_REGISTRY", address(0)), vm.envOr("REPUTATION_REGISTRY", address(0)));
     }
 
@@ -67,13 +78,15 @@ contract Deploy is Script {
         // forge auto-loads .env, which may hold a throwaway testnet key: on mainnet,
         // refuse an env key unless explicitly allowed, so the real deployment
         // can't silently come from the wrong wallet.
-        if (block.chainid == 5042 && pk != 0 && !vm.envOr("ALLOW_ENV_KEY_ON_MAINNET", false)) {
+        if ((block.chainid == 5042 || block.chainid == BOT_CHAIN) && pk != 0 && !vm.envOr("ALLOW_ENV_KEY_ON_MAINNET", false)) {
             revert("mainnet: deploy with --account <keystore> or --ledger (or set ALLOW_ENV_KEY_ON_MAINNET=true)");
         }
         address deployer = pk != 0 ? vm.addr(pk) : msg.sender;
         Deployed memory d;
         d.commerce = vm.envOr("COMMERCE_ADDRESS", address(0));
         d.ownCommerce = d.commerce == address(0);
+        // BOT Chain has no ERC-20 payment token for our own ERC-8183 instance.
+        d.skipCommerce = block.chainid == BOT_CHAIN && d.ownCommerce;
         (d.identity, d.reputation) = _erc8004();
 
         if (pk != 0) vm.startBroadcast(pk);
@@ -84,8 +97,10 @@ contract Deploy is Script {
         d.testVector = new TestVectorVerifier();
         d.target = new VulnerableTarget();
         d.popcount = new PopcountReference();
-        if (d.ownCommerce) d.commerce = CommerceDeployer.deploy(ARC_USDC, deployer);
-        d.evaluator = new VerifierEvaluator(IERC8183(d.commerce));
+        if (!d.skipCommerce) {
+            if (d.ownCommerce) d.commerce = CommerceDeployer.deploy(ARC_USDC, deployer);
+            d.evaluator = new VerifierEvaluator(IERC8183(d.commerce));
+        }
         vm.stopBroadcast();
 
         _log(d);
@@ -99,9 +114,13 @@ contract Deploy is Script {
         console2.log("TestVectorVerifier :", address(d.testVector));
         console2.log("VulnerableTarget   :", address(d.target));
         console2.log("PopcountReference  :", address(d.popcount));
-        console2.log(d.ownCommerce ? "AgenticCommerce    : (ours, admin renounced)" : "AgenticCommerce    : (existing)");
-        console2.log("  address          :", d.commerce);
-        console2.log("VerifierEvaluator  :", address(d.evaluator));
+        if (d.skipCommerce) {
+            console2.log("AgenticCommerce    : (skipped on this network)");
+        } else {
+            console2.log(d.ownCommerce ? "AgenticCommerce    : (ours, admin renounced)" : "AgenticCommerce    : (existing)");
+            console2.log("  address          :", d.commerce);
+            console2.log("VerifierEvaluator  :", address(d.evaluator));
+        }
         console2.log("ERC-8004 identity  :", d.identity);
         console2.log("ERC-8004 reputation:", d.reputation);
     }
@@ -115,7 +134,9 @@ contract Deploy is Script {
             console2.log("dry run: deployments file not written");
             return;
         }
-        string memory name = block.chainid == 5042 ? "mainnet" : block.chainid == 5042002 ? "testnet" : "";
+        string memory name = block.chainid == 5042
+            ? "arc-mainnet"
+            : block.chainid == 5042002 ? "arc-testnet" : block.chainid == BOT_CHAIN ? "bot-mainnet" : "";
         if (bytes(name).length == 0) return;
 
         string memory c = "contracts";
@@ -124,23 +145,27 @@ contract Deploy is Script {
         vm.serializeAddress(c, "BackdoorVerifier", address(d.backdoor));
         vm.serializeAddress(c, "TestVectorVerifier", address(d.testVector));
         vm.serializeAddress(c, "VulnerableTarget", address(d.target));
-        vm.serializeAddress(c, "PopcountReference", address(d.popcount));
-        if (d.ownCommerce) vm.serializeAddress(c, "AgenticCommerce", d.commerce);
-        string memory contracts = vm.serializeAddress(c, "VerifierEvaluator", address(d.evaluator));
+        string memory contracts = vm.serializeAddress(c, "PopcountReference", address(d.popcount));
+        if (!d.skipCommerce) {
+            if (d.ownCommerce) vm.serializeAddress(c, "AgenticCommerce", d.commerce);
+            contracts = vm.serializeAddress(c, "VerifierEvaluator", address(d.evaluator));
+        }
 
         string memory x = "external";
-        if (!d.ownCommerce) vm.serializeAddress(x, "AgenticCommerce (ERC-8183, existing)", d.commerce);
+        if (!d.skipCommerce && !d.ownCommerce) {
+            vm.serializeAddress(x, "AgenticCommerce (ERC-8183, existing)", d.commerce);
+        }
         vm.serializeAddress(x, "ERC-8004 IdentityRegistry", d.identity);
-        vm.serializeAddress(x, "ERC-8004 ReputationRegistry", d.reputation);
-        string memory external_ = vm.serializeAddress(x, "USDC (ERC-20 view)", ARC_USDC);
+        string memory external_ = vm.serializeAddress(x, "ERC-8004 ReputationRegistry", d.reputation);
+        if (!d.skipCommerce) external_ = vm.serializeAddress(x, "USDC (ERC-20 view)", ARC_USDC);
 
         string memory root = "root";
-        vm.serializeString(root, "network", string.concat("arc-", name));
+        vm.serializeString(root, "network", name);
         vm.serializeUint(root, "chainId", block.chainid);
         vm.serializeAddress(root, "deployer", d.engine.owner());
         vm.serializeString(root, "contracts", contracts);
         string memory json = vm.serializeString(root, "external", external_);
-        vm.writeJson(json, string.concat("deployments/arc-", name, ".json"));
-        console2.log(string.concat("wrote deployments/arc-", name, ".json"));
+        vm.writeJson(json, string.concat("deployments/", name, ".json"));
+        console2.log(string.concat("wrote deployments/", name, ".json"));
     }
 }
