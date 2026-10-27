@@ -139,6 +139,10 @@ GitHub → `I-frenzy/bountyagent` → Settings → Secrets and variables → Act
 - secret `WORKER_PRIVATE_KEY` = the agent wallet's key
 - variable `ARC_NETWORK` = `mainnet`
 - optional secret `GEMINI_API_KEY` (rotate the old one first)
+- BOT Chain: the `tick-bot` job runs the same agent on BOT Chain with the same
+  `WORKER_PRIVATE_KEY` (same address, separate balance), so that wallet needs a little
+  BOT for gas. Optional variable `BOT_MIN_SHARE` (default `0.001`) sets the smallest
+  reward share it will take.
 
 `.github/workflows/agent.yml` then runs one pass every ~5 minutes, free.
 

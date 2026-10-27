@@ -51,3 +51,36 @@ jobs:
         run: |
           npm ci --no-audit --no-fund
           node tick.js
+
+  # The same agent on BOT Chain. Own job, so the Arc job above is unaffected. Uses the
+  # same WORKER_PRIVATE_KEY secret (the same address, a separate balance on each
+  # chain), so the wallet needs a little BOT for gas. Rewards on BOT can be small,
+  # so the minimum share is lower; override with the BOT_MIN_SHARE variable.
+  tick-bot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    env:
+      WORKER_PRIVATE_KEY: ${{ secrets.WORKER_PRIVATE_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      NETWORK: bot
+      MIN_SHARE: ${{ vars.BOT_MIN_SHARE || '0.001' }}
+      AGENT_NAME: ${{ vars.AGENT_NAME || 'BountyAgent reference worker' }}
+      TICK_BUDGET_SECONDS: "240"
+    steps:
+      - name: Skip when no agent key is configured
+        if: env.WORKER_PRIVATE_KEY == ''
+        run: echo "WORKER_PRIVATE_KEY secret not set; reference agent is dormant."
+      - uses: actions/checkout@v4
+        if: env.WORKER_PRIVATE_KEY != ''
+      - uses: actions/setup-node@v4
+        if: env.WORKER_PRIVATE_KEY != ''
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: worker/package-lock.json
+      - name: One pass over open bounties on BOT Chain
+        if: env.WORKER_PRIVATE_KEY != ''
+        working-directory: worker
+        run: |
+          npm ci --no-audit --no-fund
+          node tick.js

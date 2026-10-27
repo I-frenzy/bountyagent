@@ -85,7 +85,8 @@ export const CONTRACT = process.env.CONTRACT_ADDRESS || defaultContract();
 if (!CONTRACT || !/^0x[0-9a-fA-F]{40}$/.test(CONTRACT)) throw new Error("Set CONTRACT_ADDRESS (BountyEngine).");
 
 /** Skip bounties whose per-winner share is below this, so dust bounties can't drain gas. */
-export const MIN_SHARE = parseEther(process.env.MIN_SHARE_USDC || "0.05");
+// MIN_SHARE is in the native coin; MIN_SHARE_USDC is the older name and still works.
+export const MIN_SHARE = parseEther(process.env.MIN_SHARE || process.env.MIN_SHARE_USDC || "0.05");
 
 // ERC-8004 identity registry. None on BOT Chain: the canonical address holds a stub there.
 export const IDENTITY_REGISTRY =
